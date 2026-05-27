@@ -53,8 +53,6 @@ install.packages(c(
 ))
 ```
 
-The two RAROC `.R` scripts also reference `ggbrace`, `pBrackets`, and `gridSVG` for plot decoration in one Rmd — install only if you knit `Raroc-Modeling-Clean.Rmd`.
-
 ## Citation
 
 If you use this code, please cite the accompanying paper (see paper repository / journal record for full citation).
