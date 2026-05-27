@@ -1,0 +1,950 @@
+---
+title: "TCO-RVG"
+output: html_document
+date: "2025-02-19"
+---
+
+
+#Loading packages
+```{r}
+
+library(dplyr)
+library(reshape)
+library(ggplot2)
+library(nlme)
+library(Hmisc)
+library(tidyverse)
+library(stats)
+library(scales)
+library(FinCal)
+library(waterfalls)
+library(ggpattern)
+library(patchwork)
+library(svglite)
+```
+
+#Basic setup
+```{r}
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+options(tidyverse.quiet = TRUE)
+
+ITFcolours<- c(
+  "#1f77b4",  # strong blue
+  "#d62728",  # bold red
+  "#5fa00a",  # strong green
+  "#ff7f0e",  # vivid orange
+  "#9867dd",  # medium purple
+  "#aaa000",  # lime yellow
+  "#081ed3",  # turquoise
+  "#390b79",  # deep indigo
+  "#af1493",  # deep pink
+  "#ff1147",  # tomato red
+  "#2A6B1A",  # forest green
+  "#ffcc00",  # bright yellow
+  "#19998f",  # teal green
+  "#e377c2",  # vibrant pink
+  "#9f4500"   # orange-red
+)
+
+# Working directory: anchored on this Rmd's folder (portable across machines)
+get_script_dir <- function() {
+  ki <- try(knitr::current_input(dir = TRUE), silent = TRUE)
+  if (!inherits(ki, "try-error") && !is.null(ki) && nzchar(ki)) return(dirname(ki))
+  if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+    p <- rstudioapi::getSourceEditorContext()$path
+    if (nzchar(p)) return(dirname(p))
+  }
+  getwd()
+}
+script_dir <- get_script_dir()
+```
+
+#Preparing the input data
+```{r}
+input_dir  <- file.path(script_dir, "Inputs")
+output_dir <- script_dir
+```
+
+```{r}
+#Other inputs from https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+
+#General for NPV:
+ownership_time <- 5 #years
+discount_rate <- 0.095
+interest_rate <- 0.06
+upfront_cost <- 0.2 #Variable added for sensitivity analysis
+residual_value <- 0.3 #Diesel
+subsidy <- 0 #Subsidy
+
+#Fixed costs:
+registration_fee<- 800 #[Eur] // Value for France
+DT_price <- data.frame( #[Eur]
+  year = c(2024, 2030),
+  price = c(134100, 137300)) 
+
+BET_price <- read.csv(file.path(input_dir, "BET-Price-IEA_adjusted.csv")) %>% #Source: https://iea.blob.core.windows.net/assets/0aa4762f-c1cb-4495-987a-25945d6de5e8/GlobalEVOutlook2025.pdf adjusted with projections from https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(year = Year, price = BET.Retail.Price..Eur.)
+  
+#Variable costs or parameters:
+ownership_tax <- 950 #[Eur/year] // Value for France
+road_use_charge <- 0 #[Eur/year] // Value for France
+road_tolls <- 0.32 #[Eur/km] // Value for France
+maintenance_costs <- data.frame( #[Eur/100km]
+  fuel = c("diesel", "BET"),
+  Maintenance_costs = c(18.5, 13.24)
+)
+
+diesel_consumption <- data.frame( #[l/100km]
+  year = c(2024, 2030),
+  fuel_consumption = c(27.7, 27.15) #Source: IICT adjusted with IEA trends 
+)
+
+energy_consumption <- data.frame( #[kWh/km]
+  year = c(2020, 2030),
+  energy_consumption = c(1.38, 0.99)
+  )
+
+diesel_price <- data.frame( #[Eur/l]
+  year= c(2020,2030),
+  price = c(0.905, 0.905)
+)
+
+electricity_price <- data.frame( #[Eur/kWh]
+  year = c(2020, 2030),
+  price = c(0.369, 0.127)
+)
+
+VKT_year <- read.csv(file.path(input_dir, "VKT_perYear.csv")) %>% #Source: https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(service_year = Service.year, VKT = VKT..km.)
+```
+
+
+#Interpolating data between years
+
+```{r}
+years_to_interpolate = 2020:2035
+
+DT_price <- approx(x=DT_price$year, y=DT_price$price, xout = 2024:2030, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+ 
+diesel_consumption <- approx(x=diesel_consumption$year, y=diesel_consumption$fuel_consumption, xout = 2024:2035, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, fuel_consumption = y)
+
+energy_consumption <- approx(x=energy_consumption$year, y=energy_consumption$energy_consumption, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, energy_consumption = y)
+
+diesel_price <- approx(x=diesel_price$year, y=diesel_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+
+electricity_price <- approx(x=electricity_price$year, y=electricity_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+```
+
+#Checking the Retail Price
+```{r}
+price_trucks_plot <- ggplot() +
+  geom_line(data=DT_price %>%
+              filter(year >= 2024), aes(x=year, y=price, color= "Diesel truck"), linewidth =1.2) + 
+  geom_line(data=BET_price, aes(x=year, y=price, color = "BET"), linewidth = 1.2) +
+  scale_color_manual(values=ITFcolours) +
+  scale_y_continuous(#expand = c(0,0),
+    labels = comma) +
+  scale_x_continuous(expand = c(0,0)) +
+  labs(#title="Purchase price of Trucks 2020 - 2030",
+    y="Price (€)", 
+    x="Year",
+    color = "")+
+  theme_classic()
+
+price_trucks_plot
+```
+
+
+#Checking the VKT
+```{r}
+vkt_trucks <- ggplot() +
+  geom_line(data=VKT_year, aes(x=service_year, y=VKT, color = "VKT"), linewidth =1.2) +
+  scale_color_manual(values=ITFcolours) +
+  scale_y_continuous(#expand = c(0,0),
+    labels = comma) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1)) +
+  labs(#title="VKT of trucks by service year", 
+       y="km/year", 
+       x="Service year") +
+  theme_classic()+
+  theme(legend.position = "none")
+
+vkt_trucks
+```
+
+
+#Calculating the IRR and TCO 
+
+
+
+```{r}
+
+###Detailed TCO assessment , including resale value and financing
+
+
+get_TCO_detailed <- function(Purchase_year, interest, Fuel, upfront_cost, residual_value, subsidy_type, subsidy, road_tolls_exemp){
+
+  if (Fuel == "diesel"){
+    vehicle_price <- DT_price$price[DT_price$year==Purchase_year]
+  }else if (Fuel == "BET"){
+    vehicle_price <- BET_price$price[BET_price$year==Purchase_year]
+  }
+
+  #SUBSIDY
+  if(subsidy_type == "fixed_percentage") {
+    subsidy_value <- subsidy*vehicle_price
+  } else if (subsidy_type == "percentage_difference") {
+    vehicle_price_diesel <- DT_price$price[DT_price$year==Purchase_year]
+    subsidy_value <- (vehicle_price - vehicle_price_diesel)*subsidy
+  } else if (subsidy_type == "fixed_amount"){
+    vehicle_price_diesel <- DT_price$price[DT_price$year==Purchase_year]
+    if (subsidy <= (vehicle_price - vehicle_price_diesel)){
+      subsidy_value <- subsidy
+    } else {
+      subsidy_value <- (vehicle_price - vehicle_price_diesel)
+    }
+  }
+
+  total_loan <- (vehicle_price-subsidy_value)*(1-upfront_cost)
+  
+  if (interest == 0){
+    annual_payment <- total_loan / ownership_time
+  } else {
+  annual_payment <- pmt(
+    r=interest, n=ownership_time, pv=-total_loan, fv=0) 
+  }
+
+  cash_flow_detailed <- data.frame()
+
+  for (year_ow in 0:ownership_time) {
+
+    #Checking toll exemption
+    if(Purchase_year + year_ow <= road_tolls_exemp){
+      toll_exemp <- 0 #Exempted
+    }else {
+      toll_exemp <- 1 #No_exempted
+    }
+
+    if (year_ow == 0) {
+      vehicle_purchase <- (vehicle_price-subsidy_value)*upfront_cost
+      taxes <- registration_fee
+      maintenance <- 0
+      tolls <- 0
+      fuel_consumption <- 0
+
+      financing_cost <- 0
+      
+      remaining_balance <- total_loan
+
+    } else {
+      VKT <- VKT_year$VKT[VKT_year$service_year == year_ow]
+      
+      taxes <- ownership_tax + road_use_charge
+      maintenance <- maintenance_costs$Maintenance_costs[maintenance_costs$fuel == Fuel]*VKT/100
+      tolls <- road_tolls*VKT*toll_exemp
+      if (interest == 0) {
+        financing_cost <- 0
+      } else {
+        financing_cost <- remaining_balance * interest
+      }
+      vehicle_purchase <- annual_payment - financing_cost
+      
+      remaining_balance <- remaining_balance - vehicle_purchase
+
+      if (Fuel == "diesel") {
+        fuel_consumption <- diesel_consumption$fuel_consumption[diesel_consumption$year == Purchase_year] *
+          VKT * diesel_price$price[diesel_price$year == (Purchase_year + year_ow - 1)] / 100
+      } else if (Fuel == "BET") {
+        fuel_consumption <- energy_consumption$energy_consumption[energy_consumption$year == Purchase_year] *
+          VKT * electricity_price$price[electricity_price$year == (Purchase_year + year_ow - 1)]
+      }
+
+    }
+
+    if (year_ow == ownership_time) {
+      vehicle_resale <- vehicle_price*residual_value
+    } else {
+      vehicle_resale <- 0
+    }
+
+    cash_flow_detailed <- rbind(
+      cash_flow_detailed,
+      data.frame(
+        year = year_ow,
+        vehicle_purchase = vehicle_purchase,
+        taxes = taxes,
+        maintenance = maintenance,
+        tolls = tolls,
+        fuel_consumption = fuel_consumption,
+
+        financing_cost = financing_cost,
+        vehicle_resale = vehicle_resale
+      )
+    )
+
+  }
+  
+  if (interest == 0) {
+  NPV_detailed = data.frame(
+    vehicle_purchase = npv(r = discount_rate, cf = cash_flow_detailed$vehicle_purchase),
+    taxes = npv(r = discount_rate, cf = cash_flow_detailed$taxes),
+    maintenance = npv(r = discount_rate, cf = cash_flow_detailed$maintenance),
+    tolls = npv(r = discount_rate, cf = cash_flow_detailed$tolls),
+    fuel_consumption = npv(r = discount_rate, cf = cash_flow_detailed$fuel_consumption),
+    
+    financing_cost = 0, 
+    vehicle_resale = -npv(r = discount_rate, cf = cash_flow_detailed$vehicle_resale)
+  ) %>%
+    mutate(NPV = vehicle_purchase +
+             taxes +
+             maintenance +
+             tolls +
+             fuel_consumption +
+             financing_cost +
+             vehicle_resale)
+  } else {
+    NPV_detailed = data.frame(
+      vehicle_purchase = npv(r = discount_rate, cf = cash_flow_detailed$vehicle_purchase),
+      taxes = npv(r = discount_rate, cf = cash_flow_detailed$taxes),
+      maintenance = npv(r = discount_rate, cf = cash_flow_detailed$maintenance),
+      tolls = npv(r = discount_rate, cf = cash_flow_detailed$tolls),
+      fuel_consumption = npv(r = discount_rate, cf = cash_flow_detailed$fuel_consumption),
+      
+      financing_cost = npv(r = discount_rate, cf = cash_flow_detailed$financing_cost),
+      vehicle_resale = -npv(r = discount_rate, cf = cash_flow_detailed$vehicle_resale)
+    ) %>%
+      mutate(NPV = vehicle_purchase +
+               taxes +
+               maintenance +
+               tolls +
+               fuel_consumption + 
+               financing_cost +
+               vehicle_resale)
+  }
+  
+
+  return(NPV_detailed)
+
+}
+```
+
+
+#Calculating the TCO - Diesel
+```{r}
+diesel_tco <- data.frame()
+BET_tco <- data.frame()
+
+tco_BET_diesel <- data.frame()
+
+for (year_purchase in 2024:2030){
+  
+  result_tco_diesel <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "diesel", interest= interest_rate, upfront_cost = upfront_cost, residual_value = residual_value, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0)
+
+  result_tco_BET <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "BET", interest= interest_rate, upfront_cost = upfront_cost, residual_value = 0, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0)
+  
+  tco_BET_diesel <- rbind(tco_BET_diesel, data.frame(year = year_purchase, (result_tco_BET/result_tco_diesel$NPV)))
+  
+  diesel_tco <- rbind(diesel_tco, data.frame(year = year_purchase, result_tco_diesel))
+
+  BET_tco <- rbind(BET_tco, data.frame(year = year_purchase, result_tco_BET))
+  
+  }
+```
+
+
+#Plotting the TCO
+```{r}
+ggplot() +
+  geom_line(data=diesel_tco, aes(x=year, y=NPV, color= "Diesel Truck"), size =1.2) + 
+  geom_line(data=BET_tco, aes(x=year, y=NPV, color = "Battery Electric Truck"), size = 1.2) +
+  scale_color_manual(values=ITFcolours) +
+  scale_y_continuous(#expand = c(0,0),
+                     labels = comma) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1)) +
+  labs(title="TCO of Trucks 2020 - 2030", y="Price [Eur]", 
+       x="Year",
+       color = "")+
+  theme_classic()
+```
+
+
+
+## Plot per component
+```{r}
+tco_total <- bind_rows(diesel_tco %>% mutate(truck_type = "Diesel"), BET_tco %>% mutate(truck_type = "BET"))
+
+tco_long <- tco_total %>%
+  select(-NPV) %>%  # Remove NPV since it's the total
+  pivot_longer(cols = -c(year, truck_type), names_to = "TCO_component", values_to = "cost") %>%
+  mutate(truck_type = case_when(truck_type == "BET" ~ "BET",
+                                .default = truck_type))
+```
+
+```{r}
+tco_long$TCO_component <- recode(tco_long$TCO_component, #Renaming the components for plotting
+                                 "financing_cost" = "Financing (IR=6%)",
+                                 "vehicle_purchase" = "Vehicle purchasing",
+                                 "taxes" = "Taxes",
+                                 "maintenance" = "Maintenance",
+                                 "fuel_consumption" = "Fuel",
+                                 "tolls" = "Tolls",
+                                 "vehicle_resale" = "Residual Value" 
+)
+
+
+# Plot stacked bar chart
+ggplot(tco_long, aes(x = year, y = cost, fill = TCO_component)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~truck_type) +
+  scale_fill_manual(values=ITFcolours) +
+  scale_y_continuous(expand = c(0,0),
+                     labels = scales::comma) +
+
+  labs(
+    title = "TCO of Trucks 2024 - 2030 per component",
+    x = "Year",
+    y = "TCO [EUR]",
+    fill = "TCO Component"
+  ) +
+  theme_classic() #+
+```
+
+```{r}
+## Recalculating the TCO with an IR of 15% to update the previous plot
+BET_tco_IR15 <- data.frame()
+
+for (year_purchase in 2024:2030){
+  result_tco_BET_IR15 <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "BET", interest= 0.15, upfront_cost = upfront_cost, residual_value = 0, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0)
+  
+  BET_tco_IR15 <- rbind(BET_tco_IR15, data.frame(year = year_purchase, result_tco_BET_IR15))
+}
+
+BET_tco_complete <- BET_tco %>%
+  left_join(BET_tco_IR15 %>% 
+              dplyr::select(c(year, financing_cost)) %>%
+              dplyr::rename("financing_cost_15" = "financing_cost"),
+            by = "year") %>%
+  mutate(financing_cost_15 = financing_cost_15-financing_cost) 
+
+```
+
+```{r}
+## Replotting:
+
+tco_total_IR15 <- bind_rows(diesel_tco %>% mutate(truck_type = "Diesel"), BET_tco_complete %>% mutate(truck_type = "BET"))
+
+tco_long_IR15 <- tco_total_IR15 %>%
+  select(-NPV) %>%  # Remove NPV since it's the total
+  pivot_longer(cols = -c(year, truck_type), names_to = "TCO_component", values_to = "cost") %>%
+  mutate(truck_type = case_when(truck_type == "BET" ~ "BET",
+                                .default = truck_type))
+```
+
+```{r}
+tco_long_IR15$TCO_component <- recode(tco_long_IR15$TCO_component, #Renaming the components for plotting
+                                 "financing_cost_15"="Financing (IR=15%)",
+                                 "financing_cost" = "Financing (IR=6%)",
+                                 "vehicle_purchase" = "Vehicle purchasing",
+                                 "taxes" = "Taxes",
+                                 "maintenance" = "Maintenance",
+                                 "fuel_consumption" = "Fuel",
+                                 "tolls" = "Tolls",
+                                 "vehicle_resale" = "Residual Value" 
+)
+
+
+# Plot stacked bar chart
+tco_comparison <- ggplot(tco_long_IR15, aes(x = year, y = cost, fill = TCO_component)) +
+  geom_bar_pattern(stat = "identity",
+    aes(pattern = TCO_component),
+    
+    # Visual settings for the pattern (the diagonal lines)
+    pattern_color = "black", 
+    pattern_fill = "black",       
+    pattern_angle = 45,  
+    pattern_density = 0.1,  
+    pattern_spacing = 0.02,       
+    pattern_alpha = 0.3  
+  ) +
+  facet_wrap(~truck_type) +
+  scale_fill_manual(values = c(
+    "Financing (IR=6%)" = scales::alpha(ITFcolours[5], 0.95),
+    "Financing (IR=15%)" = scales::alpha(ITFcolours[5], 0.3),
+    "Vehicle purchasing" = scales::alpha(ITFcolours[2], 0.95),
+    "Taxes" = scales::alpha(ITFcolours[1], 0.95),
+    "Maintenance" = scales::alpha(ITFcolours[4], 0.95),
+    "Fuel" = scales::alpha(ITFcolours[3], 0.95),
+    "Tolls" = scales::alpha(ITFcolours[6], 0.95),
+    "Residual Value" = scales::alpha(ITFcolours[7], 0.95)
+  )) +
+  scale_pattern_manual(values = c(
+    "Financing (IR=15%)" = "stripe",  # This gets the texture
+    "Financing (IR=6%)" = "none",     # These get no texture
+    "Vehicle purchasing" = "none",
+    "Taxes" = "none",
+    "Maintenance" = "none",
+    "Fuel" = "none",
+    "Tolls" = "none",
+    "Residual Value" = "none"
+  )) +
+  
+  scale_y_continuous(expand = c(0,0),
+                     labels = function(x) format(x, big.mark = " ", scientific = FALSE))+
+
+  labs(
+    #title = "TCO of Trucks 2024 - 2030 per component",
+    x = "Year of purchase",
+    y = "TCO (€)",
+    fill = "TCO Component",
+    pattern = "TCO Component"
+  ) +
+  theme_classic() #+
+
+tco_comparison
+```
+
+
+## BET/diesel TCO
+
+```{r}
+ggplot(tco_BET_diesel, aes(x = year, y = NPV)) +
+  geom_line(aes(color = "BET/Diesel Ratio"), size = 1.2) + 
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red", size = 1) +
+  scale_color_manual(values=ITFcolours) +
+  scale_y_continuous(#expand = c(0,0),
+                     labels = comma) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1)) +
+  labs(title="Ratio of BET/Diesel TCO 2024-2030", y="TCO ratio BET/Diesel [-]", 
+       x="Year",
+       color = "")+
+  theme_classic()
+```
+
+
+
+## Waterfall diagram
+
+```{r}
+tco_comparison_long <- data.frame(
+  year = BET_tco$year,
+  TCO_diesel = diesel_tco$NPV,
+  BET_tco[!names(BET_tco) %in% c("year", "NPV")] - diesel_tco[!names(diesel_tco) %in% c("year", "NPV")]) %>% 
+  mutate(across(-year, ~round(.x/TCO_diesel*100, 1))) %>%
+  filter(year == 2025) %>%
+  pivot_longer(cols = -c("year"), names_to = "TCO_component", values_to = "cost") %>%
+  select(-"year")
+
+tco_comparison_long$TCO_component <- recode(tco_comparison_long$TCO_component, #RENAMING FOR PLOTTING
+                                            "TCO_diesel" = "TCO Diesel",
+                                            "financing_cost" = "Financing",
+                                            "vehicle_purchase" = "Vehicle purchase",
+                                            "taxes" = "Taxes",
+                                            "maintenance" = "Maintenance",
+                                            "fuel_consumption" = "Fuel",
+                                            "tolls" = "Tolls",
+                                            "vehicle_resale" = "Residual Value" 
+)
+
+#Reordering the components for the plot
+tco_comparison_long <- tco_comparison_long %>%
+  slice(c(
+    which(TCO_component == "TCO Diesel"),
+    which(TCO_component == "Vehicle purchase"),
+    which(TCO_component == "Taxes"),
+    which(TCO_component == "Maintenance"),
+    which(TCO_component == "Tolls"),
+    which(TCO_component == "Fuel"),
+    which(TCO_component == "Residual Value"), 
+    which(TCO_component == "Financing")
+  ))
+
+ 
+waterfall_TCO_1 <- waterfall(tco_comparison_long, calc_total = TRUE, total_axis_text = "TCO BET", rect_text_size = 1, fill_by_sign = FALSE, fill_colours = alpha(ITFcolours, 0.8)) + 
+  scale_y_continuous(expand = c(0,0),
+                     labels = comma,
+                     limits = c(0,150)) +
+  labs(title="TCO comparison BETs vs Diesel 2025", y="TCO ratio BET/Diesel (%)", 
+       x="TCO component")+
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+waterfall_TCO_1
+```
+
+##Waterfall with an IR of 15%
+```{r}
+tco_comparison_long_IR15 <- data.frame(
+  year = BET_tco_IR15$year,
+  TCO_diesel = diesel_tco$NPV,
+  BET_tco_IR15[!names(BET_tco_IR15) %in% c("year", "NPV")] - diesel_tco[!names(diesel_tco) %in% c("year", "NPV")]) %>% 
+  mutate(across(-year, ~round(.x/TCO_diesel*100, 1))) %>%
+  filter(year == 2025) %>%
+  pivot_longer(cols = -c("year"), names_to = "TCO_component", values_to = "cost") %>%
+  select(-"year")
+
+tco_comparison_long_IR15$TCO_component <- recode(tco_comparison_long_IR15$TCO_component, #RENAMING FOR PLOTTING
+                                            "TCO_diesel" = "TCO Diesel",
+                                            "financing_cost" = "Financing",
+                                            "vehicle_purchase" = "Vehicle purchase",
+                                            "taxes" = "Taxes",
+                                            "maintenance" = "Maintenance",
+                                            "fuel_consumption" = "Fuel",
+                                            "tolls" = "Tolls",
+                                            "vehicle_resale" = "Residual Value" 
+)
+
+#Reordering the components for the plot
+tco_comparison_long_IR15 <- tco_comparison_long_IR15 %>%
+  slice(c(
+    which(TCO_component == "TCO Diesel"),
+    which(TCO_component == "Vehicle purchase"),
+    which(TCO_component == "Taxes"),
+    which(TCO_component == "Maintenance"),
+    which(TCO_component == "Tolls"),
+    which(TCO_component == "Fuel"),
+    which(TCO_component == "Residual Value"),
+    which(TCO_component == "Financing") 
+  ))
+
+ 
+waterfall_TCO_2 <- waterfall(tco_comparison_long_IR15, calc_total = TRUE, total_axis_text = "TCO BET", rect_text_size = 1, fill_by_sign = FALSE, fill_colours = alpha(ITFcolours, 0.8)) + 
+  scale_y_continuous(expand = c(0,0),
+                     labels = comma,
+                     limits = c(0,140)) +
+  labs(title="TCO comparison BETs vs Diesel 2025", y="TCO ratio BET/Diesel (%)", 
+       x="TCO component")+
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+waterfall_TCO_2
+```
+
+
+```{r}
+#Calculating the differences:
+TCO1_max <- max(waterfall_TCO_1[["data"]] %>% filter(x == "TCO BET") %>% pull(y))
+TCO2_max <- max(waterfall_TCO_2[["data"]] %>% filter(x == "TCO BET") %>% pull(y))
+
+#Adding them to the plot
+TCO_waterfall <- waterfall_TCO_1 + 
+  geom_rect_pattern(
+    aes(xmin = 7.65, 
+        xmax = 8.35, 
+        ymin = TCO1_max, 
+        ymax = TCO2_max,  
+        pattern = "Effects of increasing the IR from 6% to 15%"),
+    fill = alpha(ITFcolours[8], 0.02),
+    color = "black",  
+    linewidth = 0.3,
+
+    pattern_color = "black",
+    pattern_fill = "black",
+    pattern_angle = 45,
+    pattern_density = 0.005,
+    pattern_spacing = 0.03,
+    pattern_alpha = 0.05
+  ) +
+ 
+  geom_rect_pattern(
+    aes(xmin = 8.65, 
+        xmax = 9.35, 
+        ymin = TCO1_max, 
+        ymax = TCO2_max,
+        pattern = "Effects of increasing the IR from 6% to 15%"),
+    fill = alpha("black", 0.02),
+    color = "black",  
+    linewidth = 0.3,
+    pattern_color = "black",
+    pattern_fill = "black",
+    pattern_angle = 45,
+    pattern_density = 0.005,
+    pattern_spacing = 0.03,
+    pattern_alpha = 0.05
+  ) + 
+  
+  scale_pattern_manual(
+    values = c("Effects of increasing the IR from 6% to 15%" = "stripe")
+  ) +
+  
+  guides(
+    pattern = guide_legend(
+      override.aes = list(
+        pattern_alpha = 0.3,  
+        pattern_density = 0.01,  
+        pattern_spacing = 0.02, 
+        fill = NA
+      )
+    )
+  ) +
+  
+  geom_segment(
+    aes(x = 8.35, 
+        xend = 8.65,
+        y = TCO2_max, 
+        yend = TCO2_max),
+    color = "black",
+    linetype = "dashed",
+    linewidth = 0.3,
+  ) +
+  annotate("text", 
+           x = 8, 
+           y = (TCO1_max + TCO2_max) / 2, 
+           label = round(TCO2_max - TCO1_max, 1), 
+           size = 3,
+           fontface = "bold", 
+           color = "black") +
+  
+  annotate("text", 
+           x = 9, 
+           y = (TCO1_max + TCO2_max) / 2, 
+           label = round(TCO2_max - TCO1_max, 1), 
+           size = 3,
+           fontface = "bold", 
+           color = "black") +
+  
+  labs(title=NULL,
+       pattern = NULL) +  # Removes the legend title (keeps only the label)
+  theme(legend.position = "bottom")
+  
+
+TCO_waterfall
+```
+
+
+#SENSITIVITY ANALYSIS:
+
+## 1. Residual value guarantee
+```{r}
+BET_tco_sensitivity <- data.frame()
+
+for (residual_value_BET in unique(sort(c(seq(0, 0.8, by = 0.1), 0.4)))) { # I am adding the sequence from 0.12 to 0.96 and 0.4 for visualization purposes
+  for (year_purchase in 2024:2030){
+    result_tco_BET_sensitivity <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "BET", interest= interest_rate, upfront_cost = upfront_cost, residual_value = residual_value_BET, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0)
+    
+    diesel_tco_sensitivity <- diesel_tco %>%
+      filter(year == year_purchase) %>%
+      select(-year)
+    
+    BET_tco_sensitivity <- rbind(BET_tco_sensitivity, data.frame(year = year_purchase, (result_tco_BET_sensitivity/diesel_tco_sensitivity), residual_value = residual_value_BET))
+  }
+}
+```
+
+```{r}
+#Preparing data for visualization
+
+plot1 <- ggplot() +
+  
+  geom_line(data = BET_tco_sensitivity %>%
+              filter(residual_value %in% c(0, 0.1, 0.2, "0.3", 0.4)),
+            aes(x = year, y = NPV,
+                color = factor(residual_value*100, levels = c("0", "10", "20", "30", "40"))),
+            linewidth  = 1.2) +
+  
+  geom_hline(yintercept = 1, color = "red", linetype = "dashed", size = 1) +
+  
+  annotate("text", x = 2025, y = 0.95, label = "Diesel TCO", color = "red", size = 4) +
+  
+  scale_color_manual(
+    name = "RV (%)",
+    values = ITFcolours) +#c("0" = 0.1, "20" = 0.4 , "40" = 0.7, "60" = 1)) +
+  
+  scale_y_continuous(expand = c(0,0),
+                     labels = scales::number_format(accuracy = 0.1),
+                     limits = c(0.8, 1.65),
+                     breaks = seq(0.8, 1.65, 0.2)) +
+  scale_x_continuous(expand = c(0,0))+#,
+
+  labs(#title="TCO of Trucks on a 5-year horizon", y="TCO ratio BET/Diesel (-)", 
+    title = NULL,   
+    x="Year of purchase",
+    y = "TCO ratio BET/Diesel (-)",
+    color = "",
+    fill = "BET's Residual Value (%)") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+plot1
+
+```
+
+
+## 2. Interest rate
+```{r}
+BET_tco_sensitivity <- data.frame()
+
+for (interest_BET in c(0.01,seq(0, 0.30, by = 0.05))) {
+  for (year_purchase in 2024:2030){
+    
+    result_tco_BET_sensitivity <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "BET", interest= interest_BET, upfront_cost = upfront_cost, residual_value = 0, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0)
+    
+    diesel_tco_sensitivity <- diesel_tco %>%
+      filter(year == year_purchase) %>%
+      select(-year)
+    
+    BET_tco_sensitivity <- rbind(BET_tco_sensitivity, data.frame(year = year_purchase, (result_tco_BET_sensitivity/diesel_tco_sensitivity), interest = interest_BET))
+  }
+}
+```
+
+#Plotting sensitivity
+
+```{r}
+#Preparing data for visualization
+
+plot2 <- ggplot() +
+  geom_line(data = BET_tco_sensitivity %>%
+              filter(interest %in% c(0, 0.05, 0.1, "0.15", 0.2)),
+            aes(x = year, y = NPV,
+                color = factor(interest * 100, 
+                               levels = rev(c("0", "5", "10", "15", "20")))),  # reversed
+            linewidth = 1.2) +
+  
+  geom_hline(yintercept = 1, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 2025, y = 1.05, label = "Diesel TCO", color = "red", size = 4) +
+  
+  scale_color_manual(
+    name = "IR (%)",
+    values = ITFcolours # 4 interest levels = 4 colors from position 5 onward
+  ) +
+  
+  scale_y_continuous(expand = c(0, 0),
+                     labels = scales::number_format(accuracy = 0.1),
+                     limits = c(0.8, 1.65),
+                     breaks = seq(0.8, 1.65, 0.2)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  
+  labs(#title = "TCO of Trucks on a 5-year horizon", 
+    title = NULL,
+    y = "TCO ratio BET/Diesel (-)", 
+    x = "Year of purchase",
+    color = "") +
+  
+  theme_classic() + 
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(reverse = TRUE))
+
+plot2
+
+```
+
+
+```{r}
+## Putting the plots together:
+
+TCO_RV_vs_IR <- plot1 + plot2 +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = 'bottom')
+
+TCO_RV_vs_IR
+```
+
+
+##--------------- RAROC AND RoE ------------
+
+```{r}
+raroc_data_region <- read.csv(file.path(input_dir, "PD_RR_Regions.csv")) #Source: https://www.eib.org/attachments/lucalli/20240217_default_and_recovery_statistics_private_and_public_lending_1994_2023_en.pdf#page=9.08
+```
+
+
+#FUNCTION TO CALCULATE THE INTEREST NEEDED TO REACH CERTAIN LEVEL OF RETURN ON EQUITY
+
+```{r}
+## Followed methodology: https://roopya.money/introduction-to-loan-pricing-and-raroc-risk-adjusted-return-on-capital/
+###OUTPUT: INTEREST RATE
+get_interest_raroc <- function(Purchase_year, Fuel, upfront_cost, subsidy, residual_value, prob_default, region){
+  
+  if (Fuel == "Diesel") {
+    vehicle_price <- DT_price$price[DT_price$year == Purchase_year]
+    # PD <- 0.045 #Source: https://www.eib.org/attachments/lucalli/20240217_default_and_recovery_statistics_private_and_public_lending_1994_2023_en.pdf#page=9.08
+    PD <- raroc_data_region$PD[raroc_data_region$Region == region]
+    # RecoveryRate <- 0.672 #Source: https://www.eib.org/attachments/lucalli/20240217_default_and_recovery_statistics_private_and_public_lending_1994_2023_en.pdf#page=9.08
+    RecoveryRate <- raroc_data_region$recovery_rate[raroc_data_region$Region == region]
+  } else if (Fuel == "BET") {
+    vehicle_price <- BET_price$price[BET_price$year == Purchase_year]
+    PD <- prob_default
+    RecoveryRate <- residual_value
+  }
+  
+  total_loan <- (1 - upfront_cost - subsidy) * vehicle_price
+  
+  LGD <- 1 - RecoveryRate #Source: https://www.investopedia.com/terms/l/lossgivendefault.asp
+  EL <- total_loan*PD*LGD #Expected loss
+  
+  Cost_capital <- 0.0357 #Reflects bank's funding costs. For now Aprox to Return on Equity. Source: https://www.ecb.europa.eu/pub/pdf/scpops/ecb.op254~664ed99e11.en.pdf
+  Economic_capital_requirement <- 0.08 #The source indicates it must not be lower than 8%. Source: https://www.bis.org/publ/bcbs128b.pdf 
+  Economic_capital = Economic_capital_requirement*total_loan
+  
+  raroc <- 0.10
+  
+  Op_expenses <- 0.689 #As a % of net interest income. Source: https://databank.worldbank.org/source/global-financial-development/Series/GFDD.EI.07
+
+  NII <- (raroc*Economic_capital + EL)/(1-Op_expenses)
+  
+  interest_rate_output <- (NII + Cost_capital*Economic_capital)/total_loan
+  
+  return(interest_rate_output)
+}
+```
+
+#CALCULATING ACROSS DIFFERENT PD AND RVG
+```{r}
+interest_BET_sensitivity <- data.frame()
+interest_diesel <-data.frame()
+
+for (region in raroc_data_region$Region) {
+  interest_diesel_result <- get_interest_raroc(Purchase_year = 2030, Fuel="Diesel", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = residual_value, prob_default = PD, region = region)
+  
+  interest_diesel <- rbind(interest_diesel, data.frame(interest = interest_diesel_result, region = region ))
+}
+  
+for(residual_value_BET in seq(0, 0.7, by = 0.1)) {
+  for(PD_BET in c(0.02, 0.05, 0.1, 0.15, 0.2)){
+    interest_BET_result <- get_interest_raroc(Purchase_year = 2030, Fuel="BET", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = residual_value_BET, prob_default = PD_BET, region = "Sector_Avg")
+    
+    interest_BET_sensitivity <- rbind(interest_BET_sensitivity, data.frame(interest = interest_BET_result, Truck = "BET", prob_default = PD_BET, residual_value = as.numeric(residual_value_BET)))
+  }
+}
+
+```
+
+## Plotting the results
+```{r}
+
+RAROCvsPDvsRV <- ggplot() +
+  geom_bar(data =interest_BET_sensitivity %>%
+             filter(residual_value %in% c(0, 0.1, 0.2, "0.3", 0.4)),
+           aes(x = factor(prob_default*100), 
+               y = interest*100, 
+               fill = factor(residual_value*100)), 
+           stat = "identity", 
+           position = "dodge", 
+           alpha = 0.9) +
+  geom_hline(yintercept = interest_diesel$interest[interest_diesel$region=="Sector_Avg"]*100, linetype = "dashed", color = "red", size = 1) +
+  annotate("text", x = 1.2, y = (interest_diesel$interest[interest_diesel$region=="Sector_Avg"] + 0.025)*100, label = "IR = 6%", color = "red", size = 4) +
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours) +
+  scale_y_continuous(expand = c(0,0))+
+  # labels = percent_format(accuracy = 1)) +
+  labs(#title = "Interest Rate required to reach a RoE of 10%",
+    title = NULL,
+    x = "Probability of default (%)", y = "Interest Rate (%)",
+    fill = "Residual Value (%)") +
+  theme_classic()
+
+RAROCvsPDvsRV 
+```

@@ -1,0 +1,449 @@
+---
+title: "Raroc_region"
+output: html_document
+date: "2025-05-06"
+---
+
+#Loading packages
+```{r}
+library(dplyr)
+library(reshape)
+library(ggplot2)
+library(nlme)
+library(Hmisc)
+library(tidyverse)
+library(stats)
+library(scales)
+library(FinCal)
+library(waterfalls)
+library(readxl)
+
+```
+
+#Basic setup
+```{r}
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+options(tidyverse.quiet = TRUE)
+
+ITFcolours<- c(
+  "#1f77b4",  # strong blue
+  "#d62728",  # bold red
+  "#5fa00a",  # strong green
+  "#ff7f0e",  # vivid orange
+  "#9867dd",  # medium purple
+  "#aaa000",  # lime yellow
+  "#081ed3",  # turquoise
+  "#390b79",  # deep indigo
+  "#af1493",  # deep pink
+  "#ff1147",  # tomato red
+  "#2A6B1A",  # forest green
+  "#ffcc00",  # bright yellow
+  "#19998f",  # teal green
+  "#e377c2",  # vibrant pink
+  "#9f4500"   # orange-red
+)
+
+# Working directory: anchored on this Rmd's folder (portable across machines)
+get_script_dir <- function() {
+  ki <- try(knitr::current_input(dir = TRUE), silent = TRUE)
+  if (!inherits(ki, "try-error") && !is.null(ki) && nzchar(ki)) return(dirname(ki))
+  if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+    p <- rstudioapi::getSourceEditorContext()$path
+    if (nzchar(p)) return(dirname(p))
+  }
+  getwd()
+}
+script_dir <- get_script_dir()
+```
+
+#Preparing the input data
+```{r}
+input_dir   <- file.path(script_dir, "Inputs")
+raroc_input <- file.path(script_dir, "Inputs", "RAROC")
+output_dir  <- script_dir
+```
+
+```{r}
+#Other inputs from https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+
+#General for NPV:
+ownership_time <- 5 #years
+discount_rate <- 0.095
+interest_rate <- 0.06
+upfront_cost <- 0 #Variable added for sensitivity analysis
+residual_value <- 0.3 #Diesel
+subsidy <- 0 #Subsidy
+
+#Fixed costs:
+registration_fee<- 800 #[Eur] // Value for France
+DT_price <- data.frame( #[Eur]
+  year = c(2020, 2030),
+  price = c(133000, 145000)
+)
+BET_price <- read.csv(file.path(input_dir, "BET-Price.csv")) %>% #Source: https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(year = Year, price = BET.Retail.Price..Eur.)
+  
+#Variable costs or parameters:
+ownership_tax <- 950 #[Eur/year] // Value for France
+road_use_charge <- 0 #[Eur/year] // Value for France
+road_tolls <- 0.32 #[Eur/km] // Value for France
+maintenance_costs <- data.frame( #[Eur/100km]
+  fuel = c("diesel", "BET"),
+  Maintenance_costs = c(18.5, 13.24)
+)
+
+diesel_consumption <- data.frame( #[l/100km]
+  year = c(2020, 2030),
+  fuel_consumption = c(30.7, 23.2)
+)
+
+energy_consumption <- data.frame( #[kWh/km]
+  year = c(2020, 2030),
+  energy_consumption = c(1.38, 0.99)
+  )
+
+diesel_price <- data.frame( #[Eur/l]
+  year= c(2020,2030),
+  price = c(0.905, 0.905)
+)
+
+electricity_price <- data.frame( #[Eur/kWh]
+  year = c(2020, 2030),
+  price = c(0.369, 0.127)
+)
+
+VKT_year <- read.csv(file.path(input_dir, "VKT_perYear.csv")) %>% #Source: https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(service_year = Service.year, VKT = VKT..km.)
+```
+
+
+#Interpolating data between years
+
+```{r}
+years_to_interpolate = 2020:2035
+
+DT_price <- approx(x=DT_price$year, y=DT_price$price, xout = 2020:2030, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+ 
+diesel_consumption <- approx(x=diesel_consumption$year, y=diesel_consumption$fuel_consumption, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, fuel_consumption = y)
+
+energy_consumption <- approx(x=energy_consumption$year, y=energy_consumption$energy_consumption, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, energy_consumption = y)
+
+diesel_price <- approx(x=diesel_price$year, y=diesel_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+
+electricity_price <- approx(x=electricity_price$year, y=electricity_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+```
+
+
+##--------------- RAROC AND RoE ------------
+
+```{r}
+PD <- readRDS(file.path(raroc_input, "PD_WB.rds"))
+
+recovery_rate <- readRDS(file.path(raroc_input, "RecoveryRate_WB.rds"))
+
+
+CB <- readRDS(file.path(raroc_input, "CentralBank_WB.rds")) %>%
+  mutate(Value = Value/100) %>%
+  filter(!is.na(Region.wb))
+
+OpCosts <- readRDS(file.path(raroc_input, "OperationalCost_WB.rds"))
+```
+
+#FUNCTION TO CALCULATE THE INTEREST NEEDED TO REACH CERTAIN LEVEL OF RETURN ON EQUITY
+
+```{r}
+## Followed methodology: https://roopya.money/introduction-to-loan-pricing-and-raroc-risk-adjusted-return-on-capital/
+###OUTPUT: INTEREST RATE
+get_interest_raroc <- function(Purchase_year, Fuel, upfront_cost, subsidy, residual_value, PD, region, company){
+  
+  if (company == "SME") {
+    data_RR <- recovery_rate %>% 
+      select(Region, RR_industrial) %>%
+      dplyr::rename(RR = "RR_industrial")
+  } else if (company == "industry"){
+    data_RR <- recovery_rate %>% 
+      select(Region, RR_SMEs) %>%
+      dplyr::rename(RR = "RR_SMEs")
+  } else if (company == "Market"){
+    data_RR <- recovery_rate %>% 
+      select(Region, RR_industrial) %>%
+      dplyr::rename(RR = "RR_industrial")
+  }
+  
+  if (Fuel == "Diesel") {
+    vehicle_price <- DT_price$price[DT_price$year == Purchase_year]
+    
+    RecoveryRate <- data_RR$RR[data_RR$Region == region]
+    
+  } else if (Fuel == "BET") {
+    vehicle_price <- BET_price$price[BET_price$year == Purchase_year]
+    RecoveryRate <- residual_value
+  }
+  
+  total_loan <- (1 - upfront_cost - subsidy) * vehicle_price 
+  
+  LGD <- 1 - RecoveryRate #Source: https://www.investopedia.com/terms/l/lossgivendefault.asp
+  EL <- total_loan*PD*LGD #Expected loss
+  
+  Cost_capital <- CB$Value[CB$Region.wb == region]
+
+  Economic_capital_requirement <- 0.08
+  
+  Economic_capital = Economic_capital_requirement*total_loan
+  
+  raroc <- (0.10/CB$Value[CB$Region.wb == "Europe"])*Cost_capital
+  
+  Op_expenses <- OpCosts$Value[OpCosts$Region.wb == region]
+
+  NII <- (raroc*Economic_capital + EL)/(1-Op_expenses)
+  
+  interest_rate_output <- (NII + Cost_capital*Economic_capital)/total_loan
+  
+  return(interest_rate_output)
+}
+```
+
+#CALCULATING ACROSS DIFFERENT PD AND RVG 
+
+## Large companies
+```{r}
+regions <- PD$Region
+
+interest_BET_region_industry <- data.frame()
+
+for (region in regions) {
+  PD_region <- PD$PD_industrial[PD$Region==region]
+  
+  interest <- get_interest_raroc(Purchase_year = 2025, Fuel="Diesel", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region, region = region, company = "industry") #With fuel = "Diesel" I'm considering typical values for Recovery rates
+  interest_BET_result <- get_interest_raroc(Purchase_year = 2025, Fuel="BET", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region, region = region, company = "industry")
+  interest_BET_high_pd <- get_interest_raroc(Purchase_year = 2025, Fuel="BET", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region*1.5, region = region, company = "industry")
+  
+  interest_BET_region_industry <- rbind(interest_BET_region_industry, 
+                                        data.frame(interest_BET = interest_BET_result, 
+                                                   high_interest_BET = interest_BET_high_pd,
+                                                   typical_interest = interest,
+                                                   region = region))
+  # }
+}
+
+```
+
+```{r}
+interest_long <- interest_BET_region_industry %>%
+  mutate(bet_value = interest_BET) %>%
+  pivot_longer(cols = c(interest_BET, typical_interest, high_interest_BET),
+               names_to = "rate_type",
+               values_to = "interest_rate") %>%
+  mutate(rate_type = recode(rate_type,
+                            "interest_BET" = "Interest rate for BETs",
+                            "typical_interest" = "Market Interest rate",
+                            "high_interest_BET"= "Interest rate with high PD")) %>%
+  mutate(rate_type = factor(rate_type,
+                            levels = c("Interest rate for BETs",
+                                       "Market Interest rate",
+                                       "Interest rate with high PD"))) %>% 
+
+  mutate(region = forcats::fct_reorder(region, bet_value, .desc = TRUE))
+```
+
+```{r}
+ggplot() +
+  geom_col(data = interest_long %>%
+             filter(rate_type == "Market Interest rate"),
+           aes(y = region, x = interest_rate*100, fill = rate_type),
+           position = position_nudge(y = -0.2),
+           width = 0.4) +
+
+  geom_col(data = interest_long %>%
+             filter(rate_type == "Interest rate with high PD"),
+           aes(y = region, x = interest_rate * 100, fill = rate_type),
+           position = position_nudge(y = 0.2),
+           width = 0.4,
+           alpha = 0.2) + 
+
+# BET rate (top of stack): plotted second so it's on top
+  geom_col(data = interest_long %>%
+             filter(rate_type == "Interest rate for BETs"),
+           aes(y = region, x = interest_rate * 100, fill = rate_type),
+           position = position_nudge(y = 0.2),
+           width = 0.4) +
+  
+  scale_fill_manual(values = c(
+  "Interest rate for BETs" = ITFcolours[1],
+  "Interest rate with high PD" = ITFcolours[1],  # same color, will vary by alpha
+  "Market Interest rate" = ITFcolours[2]
+  ))+
+  
+  labs(title = "Interest rate requirements across regions - Large companies",
+       x = "Interest rate [%]",
+       y = "Region",
+       fill = "") +
+  theme_classic()
+
+```
+
+## SMEs
+```{r}
+
+interest_BET_region_SME <- data.frame()
+
+for (region in regions) {
+  PD_region <- PD$PD_SMEs[PD$Region==region]  
+  
+  interest <- get_interest_raroc(Purchase_year = 2025, Fuel="Diesel", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region, region = region, company = "SME") #With fuel = "Diesel" I'm considering typical values for Recovery rates
+  interest_BET_result <- get_interest_raroc(Purchase_year = 2025, Fuel="BET", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region, region = region, company = "SME")
+  interest_BET_high_pd <- get_interest_raroc(Purchase_year = 2025, Fuel="BET", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region*1.5, region = region, company = "SME")
+  
+  
+  interest_BET_region_SME <- rbind(interest_BET_region_SME, 
+                                        data.frame(interest_BET = interest_BET_result, 
+                                                   high_interest_BET = interest_BET_high_pd,
+                                                   typical_interest = interest,
+                                                   region = region))
+}
+
+```
+
+```{r}
+interest_long_SMEs <- interest_BET_region_SME %>%
+  mutate(bet_value = interest_BET) %>%
+  pivot_longer(cols = c(interest_BET, typical_interest, high_interest_BET),
+               names_to = "rate_type",
+               values_to = "interest_rate") %>%
+  mutate(rate_type = recode(rate_type,
+                            "interest_BET" = "Interest rate for BETs",
+                            "typical_interest" = "Market Interest rate",
+                            "high_interest_BET"= "Interest rate with high PD")) %>%
+  mutate(rate_type = factor(rate_type,
+                            levels = c("Interest rate for BETs",
+                                       "Market Interest rate",
+                                       "Interest rate with high PD"))) %>% 
+
+  mutate(region = forcats::fct_reorder(region, bet_value, .desc = TRUE))
+```
+
+```{r}
+ggplot() +
+  geom_col(data = interest_long_SMEs %>%
+             filter(rate_type == "Market Interest rate"),
+           aes(y = region, x = interest_rate*100, fill = rate_type),
+           position = position_nudge(y = -0.2),
+           width = 0.4) +
+
+  geom_col(data = interest_long_SMEs %>%
+             filter(rate_type == "Interest rate with high PD"),
+           aes(y = region, x = interest_rate * 100, fill = rate_type),
+           position = position_nudge(y = 0.2),
+           width = 0.4,
+           alpha = 0.2) + 
+
+  geom_col(data = interest_long_SMEs %>%
+             filter(rate_type == "Interest rate for BETs"),
+           aes(y = region, x = interest_rate * 100, fill = rate_type),
+           position = position_nudge(y = 0.2),
+           width = 0.4) +
+  
+  scale_fill_manual(values = c(
+  "Interest rate for BETs" = ITFcolours[1],
+  "Interest rate with high PD" = ITFcolours[1],  # same color, will vary by alpha
+  "Market Interest rate" = ITFcolours[2]
+  ))+
+  
+  labs(title = "Interest rate requirements across regions - SMEs",
+       x = "Interest rate [%]",
+       y = "Region",
+       fill = "") +
+  theme_classic()
+
+```
+### Calculating regional market interest rates (with average PD and RR):
+
+```{r}
+interest_market <- data.frame()
+
+for (region in regions) {
+  PD_region <- PD$PD_industrial[PD$Region==region]  
+  
+  interest <- get_interest_raroc(Purchase_year = 2025, Fuel="Diesel", upfront_cost = upfront_cost, subsidy = subsidy, residual_value = 0, PD = PD_region, region = region, company = "Market") #With fuel = "Diesel" I'm considering typical values for Recovery rates
+  
+  interest_market <- rbind(interest_market, 
+                           data.frame(typical_interest = interest,
+                                      region = region))
+}
+```
+
+
+### Plotting complete
+
+```{r}
+IR_regions <- ggplot() +
+
+  ## Large fleets
+  geom_col(data = interest_long %>%
+             filter(rate_type == "Interest rate with high PD"),
+           aes(y = region, x = interest_rate * 100, fill = "Large Fleets (BETs)", alpha = "High PD"),
+           position = position_nudge(y = 0.2),
+           width = 0.2) + 
+
+  geom_col(data = interest_long %>%
+             filter(rate_type == "Interest rate for BETs"),
+           aes(y = region, x = interest_rate * 100, fill = "Large Fleets (BETs)", alpha = "Average PD"),
+           position = position_nudge(y = 0.2),
+           width = 0.2) +
+  
+  geom_col(data = interest_long_SMEs %>%
+             filter(rate_type == "Interest rate with high PD"),
+           aes(y = region, x = interest_rate * 100, fill = "SMEs (BETs)", alpha = "High PD"),
+           position = position_nudge(y = 0),
+           width = 0.2) + 
+
+  geom_col(data = interest_long_SMEs %>%
+             filter(rate_type == "Interest rate for BETs"),
+           aes(y = region, x = interest_rate * 100, fill = "SMEs (BETs)", alpha = "Average PD"),
+           position = position_nudge(y = 0),
+           width = 0.2) +
+  
+  geom_col(data = interest_market,
+           aes(y = region, x = typical_interest*100, fill = "Market rates (Industry)", alpha = "Average PD"),
+           position = position_nudge(y = -0.2),
+           width = 0.2) +
+  
+  scale_fill_manual(
+    name = "Interest rate for:",
+    values = c(
+      "Large Fleets (BETs)" = ITFcolours[1],
+      "SMEs (BETs)" = ITFcolours[2],  # same color, will vary by alpha
+      "Market rates (Industry)" = ITFcolours[3]),
+    breaks = c("Market rates (Industry)", "Large Fleets (BETs)", "SMEs (BETs)")  # order
+  )+
+  
+  # Alpha legend
+  scale_alpha_manual(
+    name = "Risk level:",
+    values = c("Average PD" = 1, "High PD" = 0.2)
+  ) +
+  
+  scale_x_continuous(expand=c(0,0)) +
+  
+  labs(#title = "Interest rate requirements across regions",
+    title = NULL,
+       x = "Interest rate (%)",
+       y = "",
+       fill = "") +
+  theme_classic()
+
+IR_regions
+```
+
+

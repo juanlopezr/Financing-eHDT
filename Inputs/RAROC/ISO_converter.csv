@@ -1,0 +1,256 @@
+iso3,iso_proxy,region,market,olgroup,Freight_zoning,modelling_grouping,modelling_grouping_name,Country_name,ISO2,ITF,oecd,olgroup_2023,EDITS_group,Fleet_region
+ATA,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,Antarctica,AQ,0,0,-,-,-
+KO-,SRB,EU,EE,Transition,OEU,EE,Eastern Europe,Kosovo,RS,0,0,Europe,Global North,East Europe
+RKS,SRB,EU,EE,Transition,OEU,EE,Eastern Europe,Kosovo,RS,0,0,Europe,Global North,East Europe
+UMI,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,United States Minor Outlying Islands  ,UM,0,0,UCAN,Global North,UCAN
+CLP,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,CLP,LP,0,0,LAC,LAM,LAC
+SMX,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,CLP,LP,0,0,LAC,LAM,LAC
+ALB,ALB,EU,EE,Transition,OEU,EE,Eastern Europe,Albania,AL,1,0,Europe,Global North,East Europe
+BGR,BGR,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Bulgaria,BG,1,0,Europe,Global North,East Europe
+NFK,AUS,OC,OC,OECD Pacific,OCE,OC,Oceania,Norfolk Island,NF,0,0,TAP,Global North,TAP
+IOA,AUS,OC,OC,OECD Pacific,OCE,OC,Oceania,Norfolk Island,NF,0,0,TAP,Global North,TAP
+BIH,BIH,EU,EE,EEA + Turkey,OEU,EE,Eastern Europe,Bosnia and Herzegovina    ,BA,1,0,Europe,Global North,East Europe
+MAF,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Martin (French part)   ,MF,0,0,LAC,LAM,LAC
+SXM,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Sint Maarten,SX,0,0,LAC,LAM,LAC
+ABW,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Aruba,AW,0,0,LAC,LAM,LAC
+AFG,AFG,AS,ME,Asia,MEA,ME,Middle East,Afghanistan,AF,0,0,SSWA,ASIA,SSWA
+AGO,AGO,AF,SA,Africa,NAF,SA,South Africa,Angola,AO,0,0,SSA,MAF,SSA
+SHN,AGO,AF,SA,Africa,NAF,SA,South Africa,Saint Helena_ Ascension and Tristan da Cunha,SH,0,0,SSA,MAF,SSA
+CYP,CYP,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Cyprus,CY,0,0,Europe,Global North,East Europe
+ARE,ARE,AS,ME,Middle East,MEA,ME,Middle East,United Arab Emirates    ,AE,1,0,MENA,MAF,MENA
+ARG,ARG,SA,SCA,Latin America,OLA,SCA,South Cone america,Argentina,AR,1,0,LAC,LAM,LAC
+ARM,ARM,AS,R,Transition,TAN,R,Russia + Central Asia,Armenia,AM,1,0,TAP,Global North,TAP
+MSR,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Montserrat,MS,0,0,LAC,LAM,LAC
+ATG,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Antigua and Barbuda    ,AG,0,0,LAC,LAM,LAC
+AUS,AUS,OC,OC,OECD Pacific,OCE,OC,Oceania,Australia,AU,1,1,UCAN,Global North,UCAN
+EST,EST,EU,EE,EEA + Turkey,E17,EE,Eastern Europe,Estonia,EE,1,1,Europe,Global North,East Europe
+AZE,AZE,AS,R,Transition,TAN,R,Russia + Central Asia,Azerbaijan,AZ,1,0,TAP,Global North,TAP
+CA-,AZE,AS,R,Transition,TAN,R,Russia + Central Asia,-,-,0,0,TAP,Global North,TAP
+BDI,KEN,AF,AF,Africa,OAF,AF,Africa,Burundi,BI,0,0,SSA,MAF,SSA
+GRC,GRC,EU,EE,EEA + Turkey,E17,EE,Eastern Europe,Greece,GR,1,1,Europe,Global North,East Europe
+BEN,CMR,AF,AF,Africa,OAF,AF,Africa,Benin,BJ,0,0,SSA,MAF,SSA
+BFA,CIV,AF,AF,Africa,OAF,AF,Africa,Burkina Faso,BF,0,0,SSA,MAF,SSA
+BGD,BGD,AS,I,Asia,ODA,I,India+South Asia,Bangladesh,BD,0,0,SSWA,ASIA,SSWA
+HRV,HRV,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Croatia,HR,1,0,Europe,Global North,East Europe
+BHR,ARE,AS,ME,Middle East,MEA,ME,Middle East,Bahrain,BH,0,0,MENA,MAF,MENA
+AIA,BHS,NA,CAR,Latin America,OLA,CAR,Caribbean,Anguilla,AI,0,0,LAC,LAM,LAC
+BMU,BHS,NA,CAR,Latin America,OLA,CAR,Caribbean,Bermuda,BM,0,0,LAC,LAM,LAC
+CYM,BHS,NA,CAR,Latin America,OLA,CAR,Caribbean,Cayman Islands,KY,0,0,LAC,LAM,LAC
+BHS,BHS,NA,CAR,Latin America,OLA,CAR,Caribbean,Bahamas,BS,0,0,LAC,LAM,LAC
+HUN,HUN,EU,EE,EEA + Turkey,E17,EE,Eastern Europe,Hungary,HU,1,1,Europe,Global North,East Europe
+BLR,BLR,EU,R,Transition,OEU,R,Russia + Central Asia,Belarus,BY,1,0,TAP,Global North,TAP
+BLZ,BLZ,NA,CA,Latin America,OLA,CA,Central America,Belize,BZ,0,0,LAC,LAM,LAC
+BOL,BOL,SA,AN,Latin America,OLA,AN,Andean America,Bolivia_ Plurinational State of   ,BO,0,0,LAC,LAM,LAC
+BRA,BRA,SA,SCA,Latin America,BRA,SCA,South Cone america,Brazil,BR,1,0,LAC,LAM,LAC
+BRB,BRB,NA,CAR,Latin America,OLA,CAR,Caribbean,Barbados,BB,0,0,LAC,LAM,LAC
+TMP,BGD,AS,ODA,Asia,ODA,ODA,Asia,-,-,0,0,SEA,ASIA,SEA
+BRN,BRN,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Brunei Darussalam,BN,0,0,SEA,ASIA,SEA
+BTN,BGD,AS,I,Asia,ODA,I,India+South Asia,Bhutan,BT,0,0,SSWA,ASIA,SSWA
+BWA,MOZ,AF,SA,Africa,OAF,SA,South Africa,Botswana,BW,0,0,SSA,MAF,SSA
+CAF,CAF,AF,AF,Africa,OAF,AF,Africa,Central African Republic,CF,0,0,SSA,MAF,SSA
+CAN,CAN,NA,NA,North America,CAN,NA,North America,Canada,CA,1,1,UCAN,Global North,UCAN
+SPM,BRB,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Pierre and Miquelon   ,PM,0,0,LAC,LAM,LAC
+LTU,LTU,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Lithuania,LT,1,1,Europe,Global North,East Europe
+CHL,CHL,SA,SCA,Latin America,CHL,SCA,South Cone america,Chile,CL,1,1,LAC,LAM,LAC
+CHN,CHN,AS,C,China + India,CHN,C,China,China,CN,1,0,ENEA,CHN,China
+CIV,CIV,AF,AF,Africa,OAF,AF,Africa,CÃƒÂ´te d'Ivoire,CI,0,0,SSA,MAF,SSA
+CMR,CMR,AF,AF,Africa,OAF,AF,Africa,Cameroon,CM,0,0,SSA,MAF,SSA
+COD,COD,AF,AF,Africa,OAF,AF,Africa,Congo_ the Democratic Republic of the ,CD,0,0,SSA,MAF,SSA
+COG,COG,AF,AF,Africa,OAF,AF,Africa,Congo,CG,0,0,SSA,MAF,SSA
+ZAR,COG,AF,AF,Africa,OAF,AF,Africa,-,-,0,0,SSA,MAF,SSA
+COL,COL,SA,AN,Latin America,OLA,AN,Andean America,Colombia,CO,0,1,LAC,LAM,LAC
+COM,MOZ,AF,SA,Africa,OAF,SA,South Africa,Comoros,KM,0,0,SSA,MAF,SSA
+CPV,SEN,AF,AF,Africa,OAF,AF,Africa,Cape Verde,CV,0,0,SSA,MAF,SSA
+CRI,CRI,NA,CA,Latin America,OLA,CA,Central America,Costa Rica,CR,1,0,LAC,LAM,LAC
+CUB,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Cuba,CU,0,0,LAC,LAM,LAC
+LVA,LVA,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Latvia,LV,1,1,Europe,Global North,East Europe
+MKD,MKD,EU,EE,Transition,OEU,EE,Eastern Europe,Macedonia_ the former Yugoslav Republic of ,MK,1,0,Europe,Global North,East Europe
+MNE,MNE,EU,EE,Transition,OEU,EE,Eastern Europe,Montenegro,ME,1,0,Europe,Global North,East Europe
+DJI,ETH,AF,AF,Africa,OAF,AF,Africa,Djibouti,DJ,0,0,MENA,MAF,MENA
+DMA,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Dominica,DM,0,0,LAC,LAM,LAC
+POL,POL,EU,EE,EEA + Turkey,E17,EE,Eastern Europe,Poland,PL,1,1,Europe,Global North,East Europe
+ROU,ROU,EU,EE,EEA + Turkey,EU7,EE,Eastern Europe,Romania,RO,1,0,Europe,Global North,East Europe
+SRB,SRB,EU,EE,Transition,OEU,EE,Eastern Europe,Serbia,RS,1,0,Europe,Global North,East Europe
+DOM,DOM,NA,CAR,Latin America,OLA,CAR,Caribbean,Dominican Republic,DO,1,0,LAC,LAM,LAC
+DZA,DZA,AF,M,Africa,NAF,M,North Africa,Algeria,DZ,0,0,MENA,MAF,MENA
+ECU,ECU,SA,AN,Latin America,OLA,AN,Andean America,Ecuador,EC,0,0,LAC,LAM,LAC
+EGY,EGY,AF,M,Africa,NAF,M,North Africa,Egypt,EG,0,0,MENA,MAF,MENA
+ERI,ETH,AF,AF,Africa,OAF,AF,Africa,Eritrea,ER,0,0,SSA,MAF,SSA
+SVN,SVN,EU,EE,EEA + Turkey,E17,EE,Eastern Europe,Slovenia,SI,1,1,Europe,Global North,East Europe
+TUR,TUR,EU,EE,EEA + Turkey,OE5,EE,Eastern Europe,Turkey,TR,1,1,Europe,Global North,East Europe
+MDA,MDA,EU,R,Transition,OEU,R,Russia + Central Asia,Moldova_ Republic of    ,MD,1,0,Europe,Global North,East Europe
+ETH,ETH,AF,AF,Africa,OAF,AF,Africa,Ethiopia,ET,0,0,SSA,MAF,SSA
+UKR,UKR,EU,R,Transition,OEU,R,Russia + Central Asia,Ukraine,UA,1,0,Europe,Global North,East Europe
+GRL,DNK,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Greenland,GL,0,0,Europe,Global North,West Europe
+MHL,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Marshall Islands,MH,0,0,TAP,Global North,TAP
+NIU,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Niue,NU,0,0,TAP,Global North,TAP
+TKL,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Tokelau,TK,0,0,TAP,Global North,TAP
+TCA,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Turks and Caicos Islands   ,TC,0,0,TAP,Global North,TAP
+COK,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Cook Islands,CK,0,0,TAP,Global North,TAP
+FJI,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Fiji,FJ,0,0,TAP,Global North,TAP
+PYF,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,French Polynesia,PF,0,0,TAP,Global North,TAP
+NCL,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,New Caledonia,NC,0,0,TAP,Global North,TAP
+NRU,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Nauru,NR,0,0,TAP,Global North,TAP
+FRO,DNK,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Faroe Islands,FO,0,0,Europe,Global North,West Europe
+DNK,DNK,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Denmark,DK,1,1,Europe,Global North,West Europe
+FSM,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Micronesia_ Federated States of   ,FM,0,0,TAP,Global North,TAP
+GAB,CMR,AF,AF,Africa,OAF,AF,Africa,Gabon,GA,0,0,SSA,MAF,SSA
+FIN,FIN,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Finland,FI,1,1,Europe,Global North,West Europe
+ALA,FIN,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Ãƒâ€šÃ‚Âland Islands,AX,0,0,Europe,Global North,West Europe
+ISL,ISL,EU,SC,EEA + Turkey,OE5,SC,Scandinavia,Iceland,IS,1,1,Europe,Global North,West Europe
+NOR,NOR,EU,SC,EEA + Turkey,OE5,SC,Scandinavia,Norway,NO,1,1,Europe,Global North,West Europe
+SWE,SWE,EU,SC,EEA + Turkey,E17,SC,Scandinavia,Sweden,SE,1,1,Europe,Global North,West Europe
+ATF,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,French Southern Territories    ,TF,0,0,Europe,Global North,West Europe
+GEO,GEO,AS,R,Transition,TAN,R,Russia + Central Asia,Georgia,GE,1,0,TAP,Global North,TAP
+GHA,GHA,AF,AF,Africa,OAF,AF,Africa,Ghana,GH,0,0,SSA,MAF,SSA
+GIN,GIN,AF,AF,Africa,OAF,AF,Africa,Guinea,GN,0,0,SSA,MAF,SSA
+GMB,SEN,AF,AF,Africa,OAF,AF,Africa,Gambia,GM,0,0,SSA,MAF,SSA
+GNB,SEN,AF,AF,Africa,OAF,AF,Africa,Guinea-Bissau,GW,0,0,SSA,MAF,SSA
+GNQ,CMR,AF,AF,Africa,OAF,AF,Africa,Equatorial Guinea,GQ,0,0,SSA,MAF,SSA
+SGS,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,South Georgia and the South Sandwich Islands,GS,0,0,Europe,Global North,West Europe
+GRD,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Grenada,GD,0,0,LAC,LAM,LAC
+GTM,GTM,NA,CA,Latin America,OLA,CA,Central America,Guatemala,GT,0,0,LAC,LAM,LAC
+GUF,VEN,SA,AN,Latin America,OLA,AN,Andean America,French Guiana,GF,0,0,LAC,LAM,LAC
+GUY,VEN,SA,AN,Latin America,OLA,AN,Andean America,Guyana,GY,0,0,LAC,LAM,LAC
+GLP,VEN,SA,AN,Latin America,OLA,AN,Andean America,Guadeloupe,GP,0,0,LAC,LAM,LAC
+HKG,HKG,AS,C,China + India,CHN,C,China,Hong Kong,HK,0,0,ENEA,CHN,China
+HND,HND,NA,CA,Latin America,OLA,CA,Central America,Honduras,HN,0,0,LAC,LAM,LAC
+BLM,ARG,AN,SCA,Latin America,OLA,SCA,South Cone america,Saint BarthÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡lemy,BL,0,0,Europe,Global North,West Europe
+HTI,HTI,NA,CAR,Latin America,OLA,CAR,Caribbean,Haiti,HT,0,0,LAC,LAM,LAC
+AUT,AUT,EU,EW,EEA + Turkey,E17,EW,Western Europe,Austria,AT,1,1,Europe,Global North,West Europe
+IDN,IDN,AS,ASEAN,Asia,IDN,ASEAN,ASEAN countries,Indonesia,ID,0,0,SEA,ASIA,SEA
+TLS,BGD,AS,ODA,Asia,ODA,ODA,Asia,Timor-Leste,TL,0,0,SEA,ASIA,SEA
+IND,IND,AS,I,China + India,IND,I,India+South Asia,India,IN,1,0,SSWA,ASIA,SSWA
+BEL,BEL,EU,EW,EEA + Turkey,E17,EW,Western Europe,Belgium,BE,1,1,Europe,Global North,West Europe
+IRN,IRN,AS,ME,Asia,MEA,ME,Middle East,Iran_ Islamic Republic of   ,IR,0,0,SSWA,ASIA,SSWA
+IRQ,IRQ,AS,ME,Middle East,MEA,ME,Middle East,Iraq,IQ,0,0,MENA,MAF,MENA
+CHE,CHE,EU,EW,EEA + Turkey,OE5,EW,Western Europe,Switzerland,CH,1,1,Europe,Global North,West Europe
+ISR,ISR,AS,ME,Middle East,MEA,ME,Middle East,Israel,IL,1,1,MENA,MAF,MENA
+CZE,CZE,EU,EW,EEA + Turkey,E17,EW,Western Europe,Czech Republic,CZ,1,1,Europe,Global North,West Europe
+DEU,DEU,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Germany,DE,1,1,Europe,Global North,West Europe
+JAM,JAM,NA,CAR,Latin America,OLA,CAR,Caribbean,Jamaica,JM,0,0,LAC,LAM,LAC
+JOR,JOR,AS,ME,Middle East,MEA,ME,Middle East,Jordan,JO,0,0,MENA,MAF,MENA
+JPN,JPN,AS,JK,OECD Pacific,JPN,JK,Japan Korea,Japan,JP,1,1,ENEA,Global North,Japan Korea
+KAZ,KAZ,AS,R,Transition,TAN,R,Russia + Central Asia,Kazakhstan,KZ,1,0,TAP,Global North,TAP
+KEN,KEN,AF,AF,Africa,OAF,AF,Africa,Kenya,KE,0,0,SSA,MAF,SSA
+KGZ,KGZ,AS,R,Transition,TAN,R,Russia + Central Asia,Kyrgyzstan,KG,0,0,TAP,Global North,TAP
+KHM,KHM,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Cambodia,KH,1,0,SEA,ASIA,SEA
+KIR,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Kiribati,KI,0,0,TAP,Global North,TAP
+KNA,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Kitts and Nevis   ,KN,0,0,LAC,LAM,LAC
+KOR,KOR,AS,JK,OECD Pacific,KOR,JK,Japan Korea,Korea_ Republic of    ,KR,1,1,ENEA,ASIA,Japan Korea
+KWT,IRQ,AS,ME,Middle East,MEA,ME,Middle East,Kuwait,KW,0,0,MENA,MAF,MENA
+LAO,LAO,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Lao People's Democratic Republic   ,LA,0,0,SEA,ASIA,SEA
+LBN,LBN,AS,ME,Middle East,MEA,ME,Middle East,Lebanon,LB,0,0,MENA,MAF,MENA
+LBR,CIV,AF,AF,Africa,OAF,AF,Africa,Liberia,LR,0,0,SSA,MAF,SSA
+LBY,LBY,AF,M,Africa,NAF,M,North Africa,Libyan Arab Jamahiriya    ,LY,0,0,MENA,MAF,MENA
+LCA,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Lucia,LC,0,0,LAC,LAM,LAC
+LKA,LKA,AS,I,Asia,ODA,I,India+South Asia,Sri Lanka,LK,0,0,SSWA,ASIA,SSWA
+LSO,MOZ,AF,SA,Africa,OAF,SA,South Africa,Lesotho,LS,0,0,SSA,MAF,SSA
+AND,ESP,EU,EW,EEA + Turkey,E17,EW,Western Europe,Andorra,AD,0,0,Europe,Global North,West Europe
+ESP,ESP,EU,EW,EEA + Turkey,E17,EW,Western Europe,Spain,ES,1,1,Europe,Global North,West Europe
+FRA,FRA,EU,EW,EEA + Turkey,EG4,EW,Western Europe,France,FR,1,1,Europe,Global North,West Europe
+MCO,FRA,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Monaco,MC,0,0,Europe,Global North,West Europe
+MAC,CHN,AS,C,China + India,CHN,C,China,Macao,MO,0,0,ENEA,Global North,China
+MAR,MAR,AF,M,Africa,NAF,M,North Africa,Morocco,MA,1,0,MENA,MAF,MENA
+ESH,MAR,AF,M,Africa,NAF,M,North Africa,Western Sahara,EH,0,0,SSA,MAF,SSA
+GBR,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,United Kingdom,GB,1,1,Europe,Global North,West Europe
+MDG,MDG,AF,SA,Africa,OAF,SA,South Africa,Madagascar,MG,0,0,SSA,MAF,SSA
+MYT,MDG,AF,SA,Africa,OAF,SA,South Africa,Mayotte,YT,0,0,SSA,MAF,SSA
+REU,MDG,AF,SA,Africa,OAF,SA,South Africa,RÃƒÂ©union,RE,0,0,SSA,MAF,SSA
+MDV,LKA,AS,ODA,Asia,ODA,ODA,Asia,Maldives,MV,0,0,SSWA,ASIA,SSWA
+MEX,MEX,NA,CA,Latin America,MEX,CA,Central America,Mexico,MX,1,1,LAC,LAM,LAC
+GIB,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Gibraltar,GI,0,0,Europe,Global North,West Europe
+MLI,MLI,AF,AF,Africa,OAF,AF,Africa,Mali,ML,0,0,SSA,MAF,SSA
+IMN,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Isle of Man    ,IM,0,0,Europe,Global North,West Europe
+MMR,MMR,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Myanmar,MM,0,0,SEA,ASIA,SEA
+FLK,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Falkland Islands (Malvinas)    ,FK,0,0,Europe,Global North,West Europe
+MNG,MNG,AS,R,Asia,ODA,R,Russia + Central Asia,Mongolia,MN,1,0,TAP,ASIA,TAP
+MOZ,MOZ,AF,SA,Africa,OAF,SA,South Africa,Mozambique,MZ,0,0,SSA,MAF,SSA
+MRT,SEN,AF,AF,Africa,OAF,AF,Africa,Mauritania,MR,0,0,MENA,MAF,MENA
+MUS,MDG,AF,SA,Africa,OAF,SA,South Africa,Mauritius,MU,0,0,SSA,MAF,SSA
+MWI,MOZ,AF,SA,Africa,OAF,SA,South Africa,Malawi,MW,0,0,SSA,MAF,SSA
+MYS,MYS,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Malaysia,MY,0,0,SEA,ASIA,SEA
+NAM,NAM,AF,SA,Africa,OAF,SA,South Africa,Namibia,NA,0,0,SSA,MAF,SSA
+NER,MLI,AF,AF,Africa,OAF,AF,Africa,Niger,NE,0,0,SSA,MAF,SSA
+NGA,NGA,AF,AF,Africa,OAF,AF,Africa,Nigeria,NG,0,0,SSA,MAF,SSA
+NIC,NIC,NA,CA,Latin America,OLA,CA,Central America,Nicaragua,NI,0,0,LAC,LAM,LAC
+VGB,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Virgin Islands_ British    ,VG,0,0,Europe,Global North,West Europe
+JEY,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Jersey,JE,0,0,Europe,Global North,West Europe
+NPL,BGD,AS,I,Asia,ODA,I,India+South Asia,Nepal,NP,0,0,SSWA,ASIA,SSWA
+NZL,NZL,OC,OC,OECD Pacific,OCE,OC,Oceania,New Zealand,NZ,1,1,UCAN,Global North,UCAN
+OMN,ARE,AS,ME,Middle East,MEA,ME,Middle East,Oman,OM,0,0,MENA,MAF,MENA
+PAK,PAK,AS,I,Asia,ODA,I,India+South Asia,Pakistan,PK,0,0,SSWA,ASIA,SSWA
+PAN,PAN,NA,CA,Latin America,OLA,CA,Central America,Panama,PA,0,0,LAC,LAM,LAC
+PER,PER,SA,AN,Latin America,OLA,AN,Andean America,Peru,PE,0,0,LAC,LAM,LAC
+PHL,PHL,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Philippines,PH,0,0,SEA,ASIA,SEA
+MNP,BGD,AS,ODA,Asia,ODA,ODA,Asia,Northern Mariana Islands    ,MP,0,0,TAP,Global North,TAP
+PLW,BGD,AS,ODA,Asia,ODA,ODA,Asia,Palau,PW,0,0,TAP,Global North,TAP
+PNG,PNG,OC,OC,OECD Pacific,AS9,OC,Oceania,Papua New Guinea    ,PG,0,0,TAP,ASIA,TAP
+IRL,IRL,EU,EW,EEA + Turkey,E17,EW,Western Europe,Ireland,IE,1,1,Europe,Global North,West Europe
+PRI,PRI,NA,NA,Latin America,OLA,NA,North America,Puerto Rico,PR,0,0,LAC,LAM,LAC
+VIR,PRI,NA,NA,Latin America,OLA,NA,North America,Virgin Islands_ U.S.    ,VI,0,0,LAC,LAM,LAC
+ITA,ITA,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Italy,IT,1,1,Europe,Global North,West Europe
+PRY,PRY,SA,SCA,Latin America,OLA,SCA,South Cone america,Paraguay,PY,0,0,LAC,LAM,LAC
+QAT,QAT,AS,ME,Middle East,MEA,ME,Middle East,Qatar,QA,0,0,MENA,MAF,MENA
+VAT,ITA,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Holy See (Vatican City State)  ,VA,0,0,Europe,Global North,West Europe
+RUS,RUS,AS,R,Transition,RUS,R,Russia + Central Asia,Russian Federation,RU,1,0,TAP,Global North,TAP
+RWA,RWA,AF,AF,Africa,OAF,AF,Africa,Rwanda,RW,0,0,SSA,MAF,SSA
+SAU,SAU,AS,ME,Middle East,MEA,ME,Middle East,Saudi Arabia,SA,0,0,MENA,MaF,MENA
+SDN,SDN,AF,AF,Africa,OAF,AF,Africa,Sudan,SD,0,0,SSA,MAF,SSA
+SSD,SDN,AF,AF,Africa,OAF,AF,Africa,South Sudan,SS,0,0,SSA,MAF,SSA
+SEN,SEN,AF,AF,Africa,OAF,AF,Africa,Senegal,SN,0,0,SSA,MAF,SSA
+SGP,SGP,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Singapore,SG,0,0,SEA,ASIA,SEA
+SLB,AUS,OC,OC,OECD Pacific,OCE,OC,Oceania,Solomon Islands,SB,0,0,TAP,Global North,TAP
+SLE,CIV,AF,AF,Africa,OAF,AF,Africa,Sierra Leone,SL,0,0,SSA,MAF,SSA
+SLV,GTM,NA,CA,Latin America,OLA,CA,Central America,El Salvador,SV,0,0,LAC,LAM,LAC
+LUX,NLD,EU,EW,EEA + Turkey,E17,EW,Western Europe,Luxembourg,LU,1,1,Europe,Global North,West Europe
+SOM,SOM,AF,AF,Africa,OAF,AF,Africa,Somalia,SO,0,0,SSA,MAF,SSA
+LIE,CHE,EU,EW,EEA + Turkey,OE5,EW,Western Europe,Liechtenstein,LI,1,0,Europe,Global North,West Europe
+STP,CMR,AF,AF,Africa,OAF,AF,Africa,Sao Tome and Principe   ,ST,0,0,SSA,MAF,SSA
+SUR,SUR,SA,CAR,Latin America,OLA,CAR,Caribbean,Suriname,SR,0,0,LAC,LAM,LAC
+CUW,SUR,SA,CAR,Latin America,OLA,CAR,Caribbean,-,-,0,0,LAC,LAM,LAC
+GUM,BGD,AS,ODA,Asia,ODA,ODA,Asia,Guam,GU,0,0,TAP,Global North,TAP
+MLT,MLT,EU,EW,EEA + Turkey,EU7,EW,Western Europe,Malta,MT,1,0,Europe,Global North,West Europe
+NLD,NLD,EU,EW,EEA + Turkey,E17,EW,Western Europe,Netherlands,NL,1,1,Europe,Global North,West Europe
+PRT,PRT,EU,EW,EEA + Turkey,E17,EW,Western Europe,Portugal,PT,1,1,Europe,Global North,West Europe
+SWZ,MOZ,AF,SA,Africa,OAF,SA,South Africa,Swaziland,SZ,0,0,SSA,MAF,SSA
+SYC,LKA,AS,ODA,Asia,ODA,ODA,Asia,Seychelles,SC,0,0,SSWA,ASIA,SSWA
+SYR,SYR,AS,ME,Middle East,MEA,ME,Middle East,Syrian Arab Republic    ,SY,0,0,MENA,MAF,MENA
+PSE,SYR,AS,ME,Middle East,MEA,ME,Middle East,Palestinian Territory_ Occupied    ,PS,0,0,MENA,MAF,MENA
+TCD,TCD,AF,AF,Africa,OAF,AF,Africa,Chad,TD,0,0,SSA,MAF,SSA
+TGO,CIV,AF,AF,Africa,OAF,AF,Africa,Togo,TG,0,0,SSA,MAF,SSA
+THA,THA,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Thailand,TH,0,0,SEA,ASIA,SEA
+TJK,TJK,AS,R,Transition,TAN,R,Russia + Central Asia,Tajikistan,TJ,0,0,TAP,Global North,TAP
+TKM,TKM,AS,R,Transition,TAN,R,Russia + Central Asia,Turkmenistan,TM,0,0,TAP,Global North,TAP
+TON,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Tonga,TO,0,0,TAP,Global North,TAP
+TTO,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Trinidad and Tobago    ,TT,0,0,LAC,LAM,LAC
+BES,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,-,-,0,0,LAC,LAM,LAC
+MTQ,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Martinique,MQ,0,0,LAC,LAM,LAC
+TUN,TUN,AF,M,Africa,NAF,M,North Africa,Tunisia,TN,1,0,MENA,MAF,MENA
+SMR,ITA,EU,EW,EEA + Turkey,EG4,EW,Western Europe,San Marino,SM,0,0,Europe,Global North,West Europe
+TUV,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Tuvalu,TV,0,0,TAP,Global North,TAP
+TWN,TWN,AS,C,China + India,CHN,C,China,Taiwan_ Province of China   ,TW,0,0,ENEA,CHN,China
+TZA,TZA,AF,SA,Africa,OAF,SA,South Africa,Tanzania_ United Republic of   ,TZ,0,0,SSA,MAF,SSA
+UGA,UGA,AF,AF,Africa,OAF,AF,Africa,Uganda,UG,0,0,SSA,MAF,SSA
+SVK,SVK,EU,EW,EEA + Turkey,E17,EW,Western Europe,Slovakia,SK,1,1,Europe,Global North,West Europe
+URY,URY,SA,SCA,Latin America,OLA,SCA,South Cone america,Uruguay,UY,0,0,LAC,LAM,LAC
+USA,USA,NA,NA,North America,USA,NA,North America,United States,US,1,1,UCAN,Global North,UCAN
+-,USA,-,-,North America,USA,NA,North America,-,-,0,0,-,-,-
+UZB,UZB,AS,R,Transition,TAN,R,Russia + Central Asia,Uzbekistan,UZ,1,0,TAP,Global North,TAP
+VCT,CUB,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Vincent and the Grenadines  ,VC,0,0,LAC,LAM,LAC
+VEN,VEN,SA,AN,Latin America,OLA,AN,Andean America,Venezuela_ Bolivarian Republic of   ,VE,0,0,LAC,LAM,LAC
+VNM,VNM,AS,ASEAN,Asia,AS9,ASEAN,ASEAN countries,Viet Nam,VN,0,0,SEA,ASIA,SEA
+PRK,BGD,AS,ODA,Asia,ODA,ODA,Asia,Korea_ Democratic People's Republic of  ,KP,0,0,TAP,ASIA,TAP
+VUT,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Vanuatu,VU,0,0,TAP,Global North,TAP
+WSM,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Samoa,WS,0,0,TAP,Global North,TAP
+ASM,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,American Samoa,AS,0,0,TAP,Global North,TAP
+WLF,FJI,OC,OC,OECD Pacific,OCE,OC,Oceania,Wallis and Futuna    ,WF,0,0,TAP,Global North,TAP
+YEM,YEM,AS,ME,Middle East,MEA,ME,Middle East,Yemen,YE,0,0,MENA,MAF,MENA
+ZAF,ZAF,AF,SA,Africa,ZAF,SA,South Africa,South Africa,ZA,0,0,SSA,MAF,SSA
+ZMB,ZMB,AF,SA,Africa,OAF,SA,South Africa,Zambia,ZM,0,0,SSA,MAF,SSA
+ZWE,ZWE,AF,SA,Africa,OAF,SA,South Africa,Zimbabwe,ZW,0,0,SSA,MAF,SSA
+GGY,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,Guernsey,GG,0,0,Europe,Global North,West Europe
+CXR,AUS,OC,OC,OECD Pacific,OCE,OC,Oceania,Christmas Island,CX,0,0,TAP,Global North,TAP
+MAF,BHS,NA,CAR,Latin America,OLA,CAR,Caribbean,Saint Martin (French part)   ,MF,0,0,LAC,LAM,LAC
+IOT,GBR,EU,EW,EEA + Turkey,EG4,EW,Western Europe,British Indian Ocean Territory,GB,1,1,Europe,Global North,West Europe
+XKX,,,,Transition,,,,Kosovo,,,,,,East Europe

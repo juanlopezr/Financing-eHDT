@@ -1,0 +1,1018 @@
+---
+title: "RAROC-Analysis"
+output: html_document
+date: "2025-04-15"
+---
+
+#Loading packages
+```{r}
+library(dplyr)
+library(reshape)
+library(ggplot2)
+library(nlme)
+library(Hmisc)
+library(tidyverse)
+library(stats)
+library(scales)
+library(FinCal)
+library(waterfalls)
+library(cowplot)
+library(grid)
+library(patchwork)
+library(gridGraphics)
+```
+
+#Basic setup
+```{r}
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+options(tidyverse.quiet = TRUE)
+
+ITFcolours<- c(
+  "#1f77b4",  # strong blue
+  "#d62728",  # bold red
+  "#5fa00a",  # strong green
+  "#ff7f0e",  # vivid orange
+  "#9867dd",  # medium purple
+  "#aaa000",  # lime yellow
+  "#081ed3",  # turquoise
+  "#390b79",  # deep indigo
+  "#af1493",  # deep pink
+  "#ff1147",  # tomato red
+  "#2A6B1A",  # forest green
+  "#ffcc00",  # bright yellow
+  "#19998f",  # teal green
+  "#e377c2",  # vibrant pink
+  "#9f4500"   # orange-red
+)
+
+# Working directory: anchored on this Rmd's folder (portable across machines)
+get_script_dir <- function() {
+  ki <- try(knitr::current_input(dir = TRUE), silent = TRUE)
+  if (!inherits(ki, "try-error") && !is.null(ki) && nzchar(ki)) return(dirname(ki))
+  if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+    p <- rstudioapi::getSourceEditorContext()$path
+    if (nzchar(p)) return(dirname(p))
+  }
+  getwd()
+}
+script_dir <- get_script_dir()
+```
+
+#Preparing the input data
+```{r}
+input_dir   <- file.path(script_dir, "Inputs")
+raroc_input <- file.path(script_dir, "Inputs", "RAROC")
+output_dir  <- script_dir
+```
+
+```{r}
+#Other inputs from https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+
+#General for NPV:
+ownership_time <- 5 #years
+discount_rate <- 0.095
+discount_rate_public <- 0.045
+interest_rate <- 0.06
+upfront_cost <- 0.2 #Variable added for sensitivity analysis
+residual_value <- 0.3 #Diesel
+subsidy <- 0 #Subsidy
+
+#Fixed costs:
+registration_fee<- 800 #[Eur] // Value for France
+DT_price <- data.frame( #[Eur]
+  year = c(2024, 2030),
+  price = c(134100, 137300)) 
+
+BET_price <- read.csv(file.path(input_dir, "BET-Price-IEA_adjusted.csv")) %>% #Source: https://iea.blob.core.windows.net/assets/0aa4762f-c1cb-4495-987a-25945d6de5e8/GlobalEVOutlook2025.pdf adjusted with projections from https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(year = Year, price = BET.Retail.Price..Eur.)
+  
+#Variable costs or parameters:
+ownership_tax <- 950 #[Eur/year] // Value for France
+road_use_charge <- 0 #[Eur/year] // Value for France
+road_tolls <- 0.32 #[Eur/km] // Value for France
+maintenance_costs <- data.frame( #[Eur/100km]
+  fuel = c("diesel", "BET"),
+  Maintenance_costs = c(18.5, 13.24)
+)
+
+diesel_consumption <- data.frame( #[l/100km]
+  year = c(2024, 2030),
+  fuel_consumption = c(27.7, 27.15) #Source: IICT adjusted with IEA trends 
+)
+
+energy_consumption <- data.frame( #[kWh/km]
+  year = c(2020, 2030),
+  energy_consumption = c(1.38, 0.99)
+  )
+
+diesel_price <- data.frame( #[Eur/l]
+  year= c(2020,2030),
+  price = c(0.905, 0.905)
+)
+
+electricity_price <- data.frame( #[Eur/kWh]
+  year = c(2020, 2030),
+  price = c(0.369, 0.127)
+)
+
+VKT_year <- read.csv(file.path(input_dir, "VKT_perYear.csv")) %>% #Source: https://theicct.org/wp-content/uploads/2021/11/tco-bets-europe-1-nov21.pdf
+  dplyr::rename(service_year = Service.year, VKT = VKT..km.)
+```
+
+
+#Interpolating data between years
+
+```{r}
+years_to_interpolate = 2020:2035
+
+DT_price <- approx(x=DT_price$year, y=DT_price$price, xout = 2024:2030, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+ 
+diesel_consumption <- approx(x=diesel_consumption$year, y=diesel_consumption$fuel_consumption, xout = 2024:2035, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, fuel_consumption = y)
+
+energy_consumption <- approx(x=energy_consumption$year, y=energy_consumption$energy_consumption, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, energy_consumption = y)
+
+diesel_price <- approx(x=diesel_price$year, y=diesel_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+
+electricity_price <- approx(x=electricity_price$year, y=electricity_price$price, xout = years_to_interpolate, method = "linear", rule = 2) %>% 
+  as.data.frame() %>%
+  dplyr::rename (year = x, price = y)
+```
+
+## -------- GET incentive to reduce TCO -----
+
+```{r}
+get_TCO_detailed <- function(Purchase_year, interest, Fuel, upfront_cost, residual_value, subsidy_type, subsidy, road_tolls_exemp){
+    
+  if (Fuel == "diesel"){
+    vehicle_price <- DT_price$price[DT_price$year==Purchase_year]
+  }else if (Fuel == "BET"){
+    vehicle_price <- BET_price$price[BET_price$year==Purchase_year]
+  }
+  
+  #SUBSIDY
+  if(subsidy_type == "fixed_percentage") {
+    subsidy_value <- subsidy*vehicle_price
+  } else if (subsidy_type == "percentage_difference") {
+    vehicle_price_diesel <- DT_price$price[DT_price$year==Purchase_year]
+    subsidy_value <- (vehicle_price - vehicle_price_diesel)*subsidy
+  } else if (subsidy_type == "fixed_amount"){
+    vehicle_price_diesel <- DT_price$price[DT_price$year==Purchase_year]
+    if (subsidy <= (vehicle_price - vehicle_price_diesel)){
+      subsidy_value <- subsidy
+    } else {
+      subsidy_value <- (vehicle_price - vehicle_price_diesel)
+    }
+  }
+  
+  total_loan <- (vehicle_price-subsidy_value)*(1-upfront_cost)
+  annual_payment <- pmt(
+    r=interest/12, n=ownership_time*12, pv=-total_loan, fv=0)*12 # I removed fv= vehicle_price*residual_value
+  
+  cash_flow_detailed <- data.frame()
+  
+  for (year_ow in 0:ownership_time) {
+    
+    #Checking toll exemption
+    if(Purchase_year + year_ow <= road_tolls_exemp){
+      toll_exemp <- 0 #Exempted
+    }else {
+      toll_exemp <- 1 #No_exempted
+    }
+    
+    if (year_ow == 0) {
+      vehicle_purchase <- (vehicle_price-subsidy_value)*upfront_cost
+      taxes <- registration_fee
+      maintenance <- 0
+      tolls <- 0
+      fuel_consumption <- 0
+      
+    } else {
+      VKT <- VKT_year$VKT[VKT_year$service_year == year_ow]
+      
+      vehicle_purchase <- annual_payment
+      taxes <- ownership_tax + road_use_charge
+      maintenance <- maintenance_costs$Maintenance_costs[maintenance_costs$fuel == Fuel]*VKT/100
+      tolls <- road_tolls*VKT*toll_exemp
+      
+      if (Fuel == "diesel") {
+        fuel_consumption <- diesel_consumption$fuel_consumption[diesel_consumption$year == Purchase_year] *
+          VKT * diesel_price$price[diesel_price$year == (Purchase_year + year_ow - 1)] / 100
+      } else if (Fuel == "BET") {
+        fuel_consumption <- energy_consumption$energy_consumption[energy_consumption$year == Purchase_year] *
+          VKT * electricity_price$price[electricity_price$year == (Purchase_year + year_ow - 1)]
+      }
+      
+    }
+    
+    if (year_ow == ownership_time) {
+      vehicle_purchase <- vehicle_purchase-vehicle_price*residual_value
+    } else {
+      vehicle_purchase <- vehicle_purchase
+    }
+    
+    cash_flow_detailed <- rbind(
+      cash_flow_detailed,
+      data.frame(
+        year = year_ow,
+        vehicle_purchase = vehicle_purchase,
+        taxes = taxes,
+        maintenance = maintenance,
+        tolls = tolls,
+        fuel_consumption = fuel_consumption
+        #vehicle_resale = vehicle_resale
+      )
+    )
+    
+  }
+  
+  NPV_detailed = data.frame(
+    vehicle_purchase = npv(r = discount_rate, cf = cash_flow_detailed$vehicle_purchase),
+    taxes = npv(r = discount_rate, cf = cash_flow_detailed$taxes),
+    maintenance = npv(r = discount_rate, cf = cash_flow_detailed$maintenance),
+    tolls = npv(r = discount_rate, cf = cash_flow_detailed$tolls),
+    fuel_consumption = npv(r = discount_rate, cf = cash_flow_detailed$fuel_consumption)
+    #vehicle_resale = npv(r = discount_rate, cf = cash_flow_detailed$vehicle_resale)
+  ) %>%
+    mutate(NPV = vehicle_purchase + taxes + maintenance + tolls + fuel_consumption) # + vehicle_resale)
+  
+  
+  return(NPV_detailed)
+  
+}
+```
+
+
+```{r}
+get_NPV_fin_instrument <- function(Purchase_year, subsidy_type, subsidy, interest_high, interest_low, residual_value, road_tolls_exemp, second_hand_value) {
+  
+  vehicle_price <- BET_price$price[BET_price$year==Purchase_year] #Calculating the vehicle price
+  vehicle_price_diesel <- DT_price$price[DT_price$year==Purchase_year] #Calculating the price of diesel truck
+  
+  
+  #SUBSIDY
+  if(subsidy_type == "fixed_percentage") {
+    subsidy_value <- subsidy*vehicle_price
+  } else if (subsidy_type == "percentage_difference") {
+    subsidy_value <- (vehicle_price - vehicle_price_diesel)*subsidy
+  } else if (subsidy_type == "fixed_amount"){
+    if (subsidy <= (vehicle_price - vehicle_price_diesel)){
+      subsidy_value <- subsidy
+    } else {
+      subsidy_value <- (vehicle_price - vehicle_price_diesel)
+    }
+  }
+
+  total_loan <- (vehicle_price-subsidy_value)*(1-upfront_cost) #Estimating the total loan
+  annual_payment_high <- pmt( #Annual payment with high interest
+    r=interest_high/12, n=ownership_time*12, pv=-total_loan, fv = 0)*12 ## Here, in pv I am making interests independent to the subsidy because I want to evaluate the financial instruments individually. 
+  
+  annual_payment_low <- pmt( #Annual payment with low interest
+    r=interest_low/12, n=ownership_time*12, pv=-total_loan, fv =0)*12 ## Here, in pv I am making interests independent to the subsidy because I want to evaluate the financial instruments individually. 
+  
+  financial_instrument <- data.frame() 
+   
+  for (year_ow in 0:ownership_time) { #Running the calculations for the ownership period
+    
+    #Checking toll exemption
+    if(Purchase_year + year_ow <= road_tolls_exemp){
+      toll_exemp <- 0 #Exempted
+    }else {
+      toll_exemp <- 1 #No_exempted
+    }
+    
+    if (year_ow == 0) { 
+      
+      remaining_balance_high <- (vehicle_price-subsidy_value)*upfront_cost #Here, I am making interests independent to the subsidy because I want to evaluate the financial instruments individually. 
+      remaining_balance_low <- (vehicle_price-subsidy_value)*upfront_cost #Here, I am making interests independent to the subsidy because I want to evaluate the financial instruments individually.
+      purchase_subsidy = subsidy_value
+      tolls_subsidy <- 0
+      interest_subsidy <- 0
+      residual_value_subsidy <- 0
+      
+    } else {
+      VKT <- VKT_year$VKT[VKT_year$service_year == year_ow]
+      
+      purchase_subsidy <- 0
+      tolls_subsidy <- road_tolls*VKT*(1-toll_exemp)
+      
+      interest_high_paid <- remaining_balance_high * interest_high #Interest paid with high interest
+      interest_low_paid <- remaining_balance_low * interest_low #Interest paid with  low interest
+      
+      interest_subsidy <- interest_high_paid - interest_low_paid #Subsidy on interests
+      
+      remaining_balance_high <- remaining_balance_high - (annual_payment_high - interest_high_paid) #Remaining debt balance to recalculate interests
+      remaining_balance_low <- remaining_balance_low - (annual_payment_low - interest_low_paid)
+      
+      if (year_ow == ownership_time) {
+        residual_value_subsidy <- max(0,vehicle_price*(residual_value - second_hand_value)) #Only considered in the last year and if no zero
+      } else {
+        residual_value_subsidy <- 0
+      }
+
+    }
+    
+    financial_instrument <- rbind( 
+      financial_instrument,
+      data.frame(
+        year = year_ow,
+        purchase_subsidy = purchase_subsidy,
+        tolls_subsidy = tolls_subsidy,
+        interest_subsidy = interest_subsidy,
+        residual_value_subsidy = residual_value_subsidy
+      )
+    )
+    
+  }
+  
+  NPV_financial_instrument = data.frame( #Calculate NPV
+    purchase_subsidy = npv(r = discount_rate_public, cf = financial_instrument$purchase_subsidy),
+    tolls_subsidy = npv(r = discount_rate_public, cf = financial_instrument$tolls_subsidy),
+    interest_subsidy = npv(r = discount_rate_public, cf = financial_instrument$interest_subsidy),
+    residual_value_subsidy = npv(r = discount_rate_public, cf = financial_instrument$residual_value_subsidy)
+  ) 
+  
+  return(NPV_financial_instrument)
+}
+```
+
+##--------------- RAROC AND RoE ------------
+
+```{r}
+PD <- readRDS(file.path(raroc_input, "PD_WB.rds"))
+
+recovery_rate <- readRDS(file.path(raroc_input, "RecoveryRate_WB.rds"))
+
+
+CB <- readRDS(file.path(raroc_input, "CentralBank_WB.rds")) %>%
+  mutate(Value = Value/100) %>%
+  filter(!is.na(Region.wb))
+
+OpCosts <- readRDS(file.path(raroc_input, "OperationalCost_WB.rds"))
+```
+
+#FUNCTION TO CALCULATE THE INTEREST NEEDED TO REACH CERTAIN LEVEL OF RETURN ON EQUITY
+
+```{r}
+## Followed methodology: https://roopya.money/introduction-to-loan-pricing-and-raroc-risk-adjusted-return-on-capital/
+###OUTPUT: INTEREST RATE
+get_interest_raroc <- function(Purchase_year, Fuel, upfront_cost, subsidy, residual_value, PD, region, company){
+  
+  if (company == "SME") {
+    data_RR <- recovery_rate %>% 
+      select(Region, RR_industrial) %>%
+      dplyr::rename(RR = "RR_industrial")
+  } else if (company == "industry"){
+    data_RR <- recovery_rate %>% 
+      select(Region, RR_SMEs) %>%
+      dplyr::rename(RR = "RR_SMEs")
+  } else if (company == "Market"){
+    data_RR <- recovery_rate %>% 
+      select(Region, RR)
+  }
+  
+  if (Fuel == "Diesel") {
+    vehicle_price <- DT_price$price[DT_price$year == Purchase_year]
+    
+    RecoveryRate <- data_RR$RR[data_RR$Region == region]
+    
+  } else if (Fuel == "BET") {
+    vehicle_price <- BET_price$price[BET_price$year == Purchase_year]
+    RecoveryRate <- residual_value
+  }
+  
+  total_loan <- (1 - upfront_cost - subsidy) * vehicle_price 
+
+  
+  LGD <- 1 - RecoveryRate #Source: https://www.investopedia.com/terms/l/lossgivendefault.asp
+  EL <- total_loan*PD*LGD #Expected loss
+  
+  Economic_capital_requirement <- 0.08
+  
+  Cost_capital <- CB$Value[CB$Region.wb == region]
+
+  Economic_capital = Economic_capital_requirement*total_loan
+  
+  raroc <- 0.1
+  
+  Op_expenses <- OpCosts$Value[OpCosts$Region.wb == region]
+
+  NII <- (raroc*Economic_capital + EL)/(1-Op_expenses)
+  
+  interest_rate_output <- (NII + Cost_capital*Economic_capital)/total_loan
+  
+  return(interest_rate_output)
+}
+```
+
+# Function to calculate the incentive required to reach a TCO reduction goal
+
+```{r}
+find_incentive <- function(TCO_reduction_goal, year, incentive_type, guess_value) {
+
+  residual_value <- RV_market$RV[RV_market$year == year]
+  road_tolls_exemp <- 0
+  subsidy <- 0
+  
+  baseline_TCO <- BET_tco$NPV[BET_tco$year == year]
+  target_TCO <- baseline_TCO * (1-TCO_reduction_goal)
+  
+  # Update the parameter based on the input
+  if (incentive_type == "subsidy") {
+    subsidy <- guess_value
+    PD_BET_find <- PD_BET_before$PD[PD_BET_before$year==year]
+      
+  } else if (incentive_type == "residual_value") {
+    residual_value <- guess_value
+    PD_BET_find <- PD_BET_after$PD[PD_BET_after$year==year]
+    
+  } else if (incentive_type == "tolls") {
+    road_tolls_exemp <- guess_value
+  } else if (incentive_type == "combined") { #Combined means RVG + subsidy
+    residual_value <- 0.25
+    subsidy <- guess_value
+    PD_BET_find <- PD_BET_after$PD[PD_BET_after$year==year]
+
+  }
+  
+  interest_new <- get_interest_raroc(Purchase_year = year, 
+                                     Fuel="BET", 
+                                     upfront_cost = upfront_cost, 
+                                     subsidy = subsidy, 
+                                     residual_value = residual_value, 
+                                     PD = PD_BET_find, 
+                                     region = "Europe", 
+                                     company = "industry")
+  
+  
+  #Estimating the new TCO
+  TCO_estimated <- get_TCO_detailed(
+    Purchase_year = year,
+    interest = interest_new,
+    # interest = interest_rate,
+    Fuel = "BET",
+    upfront_cost = upfront_cost,
+    residual_value = residual_value,
+    subsidy_type = "fixed_percentage", 
+    subsidy = subsidy,
+    road_tolls_exemp = road_tolls_exemp
+  )
+  
+  return(TCO_estimated$NPV-target_TCO)
+}
+```
+
+```{r}
+PD_BET_before<- data.frame(
+  year = 2024:2035) %>%
+  mutate(PD =  PD$PD_industrial[PD$Region == "Europe"] /(1 + exp(2*(year - 2030))) + PD$PD_industrial[PD$Region == "Europe"])
+
+ggplot()+
+  geom_line(data=PD_BET_before, aes(x=year, y=PD*100, color = "PD"), size = 1.2) +
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours) +
+  scale_y_continuous(expand = c(0,0),
+                     limits=c(0,6)) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1, big.mark = "")) +
+  labs(title="Probability of Default over time", 
+       y="PD (%)", 
+       x="Year") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+
+PD_BET_after <- PD_BET_before
+
+ggplot()+
+  geom_line(data=PD_BET_after, aes(x=year, y=PD*100, color = "PD"), size = 1.2) +
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours) +
+  scale_y_continuous(expand = c(0,0),
+                     limits=c(0,6)) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1, big.mark = "")) +
+  labs(title="Probability of Default over time",
+       y="PD (%)",
+       x="Year") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+
+# Estimating market RV with no incentive
+```{r}
+RV_market <- data.frame(
+  year = 2024:2040) %>%
+  mutate(RV = 0.20 /(1 + exp(-1*(year - 2030))))
+
+ggplot()+
+  geom_line(data=RV_market, aes(x=year, y=RV*100, color = "RV"), size = 1.2) +
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours) +
+  scale_y_continuous(expand = c(0,0),
+                     limits=c(0,25)) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1, big.mark = "")) +
+  labs(title="Market RV over time with no incentive", 
+       y="RV (%)", 
+       x="Year") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+#Calculating BET/diesel TCO ratio updating IRs:
+```{r}
+diesel_tco <- data.frame()
+BET_tco <- data.frame()
+
+tco_BET_diesel <- data.frame()
+
+for (year_purchase in 2024:2030){
+  
+  #Diesel TCO
+  result_tco_diesel <- get_TCO_detailed(Purchase_year = year_purchase, Fuel = "diesel", interest= interest_rate, upfront_cost = upfront_cost, residual_value = residual_value, subsidy_type = "fixed_percentage", subsidy = subsidy, road_tolls_exemp= 0) #Diesel TCO
+  
+  #New interest rates for BET with no incentive:
+  interest_new <- get_interest_raroc(Purchase_year = year_purchase, Fuel="BET", upfront_cost = upfront_cost, subsidy = 0, residual_value = RV_market$RV[RV_market$year==year_purchase], PD = PD_BET_before$PD[PD_BET_before$year==year_purchase], region = "Europe", company = "industry") 
+  
+  #BET TCO
+  result_tco_BET <- get_TCO_detailed(
+    Purchase_year = year_purchase, 
+    interest = interest_new,
+    # interest = interest_rate,
+    Fuel = "BET",
+    upfront_cost = upfront_cost,
+    residual_value = RV_market$RV[RV_market$year==year_purchase],
+    subsidy_type = "fixed_percentage",
+    subsidy = 0,
+    road_tolls_exemp = 0
+  )
+  
+  tco_BET_diesel <- rbind(tco_BET_diesel, data.frame(year = year_purchase, (result_tco_BET/result_tco_diesel$NPV)))
+  
+  diesel_tco <- rbind(diesel_tco, data.frame(year = year_purchase, result_tco_diesel))
+
+  BET_tco <- rbind(BET_tco, data.frame(year = year_purchase, result_tco_BET))
+  
+  }
+```
+
+```{r}
+#Plotting TCO difference:
+ggplot(tco_BET_diesel, aes(x = year, y = NPV)) +
+  geom_line(aes(color = "BET/Diesel Ratio"), size = 1.2) + 
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red", size = 1) +
+  scale_color_manual(values=ITFcolours) +
+  scale_y_continuous(#expand = c(0,0),
+                     labels = comma) +
+  scale_x_continuous(expand = c(0,0),
+                     labels = number_format(accuracy = 1, big.mark = "")) +
+  labs(title="Ratio of BET/Diesel TCO 2024-2030", y="TCO ratio BET/Diesel (-)", 
+       x="Year of purchase",
+       color = "")+
+  theme_classic()
+```
+
+#Calculating the incentive to reach TCO parity
+
+```{r}
+subsidy_results <- data.frame()
+
+max_subsidy <- 0.5 #Maximum subsidy possible
+
+for (year in 2024:2030) {
+  
+  #Calculating the new IR
+  IR_new <- get_interest_raroc(Purchase_year = year, 
+                               Fuel="BET", 
+                               upfront_cost = upfront_cost, 
+                               subsidy = max_subsidy, 
+                               residual_value = RV_market$RV[RV_market$year==year], 
+                               PD = PD_BET_before$PD[PD_BET_before$year==year], 
+                               region = "Europe", 
+                               company = "industry")
+  
+    subsidy_solution <- max_subsidy 
+    
+    #Calculating the actual TCO with the max subsidy
+    TCO_BET <- get_TCO_detailed(
+      Purchase_year = year, 
+      interest = IR_new,
+      # interest = interest_rate,
+      Fuel = "BET",
+      upfront_cost = upfront_cost,
+      residual_value = RV_market$RV[RV_market$year==year],
+      subsidy_type = "fixed_percentage",
+      subsidy = subsidy_solution,
+      road_tolls_exemp = 0
+    )$NPV
+    
+    if (TCO_BET <= diesel_tco$NPV[diesel_tco$year == year]){
+      TCO_parity <- "Yes"
+    } else {
+      TCO_parity <- "No"
+    }
+    
+    #Calculating the actual TCO reduction
+    TCO_red <- (BET_tco$NPV[BET_tco$year == year]/TCO_BET)-1
+  
+  NPV_gov = get_NPV_fin_instrument(Purchase_year=year, 
+                                   subsidy_type = "fixed_percentage", 
+                                   subsidy = subsidy_solution, 
+                                   interest_high = IR_new, 
+                                   interest_low = IR_new, 
+                                   residual_value = 0, 
+                                   road_tolls_exemp=0, 
+                                   second_hand_value=RV_market$RV[RV_market$year==year])
+  
+  subsidy_results <- rbind(subsidy_results,
+                           data.frame( year = year, 
+                                       subsidy_req = subsidy_solution, 
+                                       NPV_gov = NPV_gov$purchase_subsidy,
+                                       TCO_parity = TCO_parity,
+                                       TCO_red = TCO_red))
+}
+
+```
+
+# Residual value guarantee
+```{r}
+rvg_results <- data.frame()
+
+max_rvg <- 0.25 #Maximum RVG
+
+for (year in 2024:2030) {
+  
+  second_hand_value <- RV_market$RV[RV_market$year==year]
+  
+  #Calculating the new IR
+  IR_new <- get_interest_raroc(Purchase_year = year, 
+                               Fuel="BET", 
+                               upfront_cost = upfront_cost, 
+                               subsidy = 0, #No subsidy
+                               residual_value = max_rvg,
+                               PD = PD_BET_after$PD[PD_BET_after$year==year], 
+                               region = "Europe", 
+                               company = "industry")
+  
+  rvg_solution <- max_rvg #Max RVG possible
+
+  #Calculating the actual TCO with the max subsidy
+  TCO_BET <- get_TCO_detailed(
+    Purchase_year = year, 
+    interest = IR_new,
+    # interest = interest_rate,
+    Fuel = "BET",
+    upfront_cost = upfront_cost,
+    residual_value = rvg_solution,
+    subsidy_type = "fixed_percentage",
+    subsidy = 0,
+    road_tolls_exemp = 0
+  )$NPV
+  
+  if (TCO_BET <= diesel_tco$NPV[diesel_tco$year == year]){
+    TCO_parity <- "Yes"
+  } else {
+    TCO_parity <- "No"
+  }
+  
+  #Calculating the actual TCO reduction
+  TCO_red <- (BET_tco$NPV[BET_tco$year == year]/TCO_BET) -1
+  
+  NPV_gov = get_NPV_fin_instrument(Purchase_year=year, 
+                                   subsidy_type = "fixed_percentage", 
+                                   subsidy = 0, 
+                                   interest_high = IR_new, 
+                                   interest_low = IR_new, 
+                                   residual_value = rvg_solution, 
+                                   road_tolls_exemp=0, 
+                                   second_hand_value=RV_market$RV[RV_market$year==year+5]) # Cost for governments with a RVG at the 5 year)
+  
+  rvg_results <- rbind(rvg_results,
+                       data.frame( year = year, 
+                                   rvg_req = rvg_solution,
+                                   second_hand_value =RV_market$RV[RV_market$year==year+5], # Cost for governments with a RVG at the 5 year,
+                                   NPV_gov = NPV_gov$residual_value_subsidy,
+                                   TCO_parity = TCO_parity,
+                                   TCO_red = TCO_red))
+  
+}
+
+```
+
+# Combined measures: RVG+Subsidy
+```{r}
+combined_results <- data.frame()
+max_subsidy <- 0.335 #Maximum subsidy possible
+max_rvg <- 0.25
+
+for (year in 2024:2030) { #Only consider the years where the RVG was higher to the maximum RVG set in 25%
+  
+  second_hand_value <- RV_market$RV[RV_market$year==year]
+
+  #Calculating the new IR
+  IR_new <- get_interest_raroc(Purchase_year = year, 
+                               Fuel="BET", 
+                               upfront_cost = upfront_cost, 
+                               subsidy = max_subsidy, #No subsidy
+                               residual_value = max_rvg, #Max between Market RV a 25%
+                               PD = PD_BET_after$PD[PD_BET_after$year==year], 
+                               region = "Europe", 
+                               company = "industry")
+  
+  combined_solution <- max_subsidy #Max subsidy possible
+
+  #Calculating the actual TCO with the max subsidy
+  TCO_BET <- get_TCO_detailed(
+    Purchase_year = year, 
+    interest = IR_new,
+    Fuel = "BET",
+    upfront_cost = upfront_cost,
+    residual_value = max_rvg,
+    subsidy_type = "fixed_percentage",
+    subsidy = max_subsidy,
+    road_tolls_exemp = 0
+  )$NPV
+  
+  if (TCO_BET <= diesel_tco$NPV[diesel_tco$year == year]){
+    TCO_parity <- "Yes"
+  } else {
+    TCO_parity <- "No"
+  }
+  
+  #Calculating the actual TCO reduction
+  TCO_red <- (BET_tco$NPV[BET_tco$year == year]/TCO_BET) -1
+
+  NPV_gov = get_NPV_fin_instrument(Purchase_year=year, 
+                                   subsidy_type = "fixed_percentage", 
+                                   subsidy = combined_solution, 
+                                   interest_high = IR_new, 
+                                   interest_low = IR_new, 
+                                   residual_value = max_rvg, 
+                                   road_tolls_exemp=0, 
+                                   second_hand_value=RV_market$RV[RV_market$year==year+5]) # Cost for governments with a RVG at the 5 year
+  
+  combined_results <- rbind(combined_results,
+                            data.frame( year = year, 
+                                        rvg_req = max_rvg,
+                                        subsidy_req = combined_solution,
+                                        second_hand_value =RV_market$RV[RV_market$year==year+5], # Cost for governments with a RVG at the 5 year,
+                                        NPV_gov = NPV_gov$residual_value_subsidy + NPV_gov$purchase_subsidy,
+                                        TCO_parity = TCO_parity,
+                                        TCO_red = TCO_red))
+}
+
+```
+
+```{r}
+subsidy_results_gg <- subsidy_results %>%
+  arrange(year) %>%
+  mutate(year_next = lead(year),
+         NPV_next = lead(NPV_gov),
+         TCO_parity_next = lead(TCO_parity)) %>%
+  filter(!is.na(year_next))
+
+rvg_results_gg <- rvg_results %>%
+  arrange(year) %>%
+  mutate(year_next = lead(year),
+         NPV_next = lead(NPV_gov),
+         TCO_parity_next = lead(TCO_parity)) %>%
+  filter(!is.na(year_next))
+
+combined_results_gg <- combined_results %>%
+  arrange(year) %>%
+  mutate(year_next = lead(year),
+         NPV_next = lead(NPV_gov),
+         TCO_parity_next = lead(TCO_parity)) %>%
+  filter(!is.na(year_next))
+
+```
+
+```{r}
+## ESTIMATING WHEN TCO PARITY IS REACHED:
+
+TCO_parity_subsidy <- subsidy_results %>%
+  filter(TCO_parity == "Yes") %>%
+  slice_min(year, n = 1) %>%
+  select(year, NPV_gov) %>%
+  mutate(incentive = "Subsidy")
+
+TCO_parity_rvg <- rvg_results %>%
+  filter(TCO_parity == "Yes") %>%
+  slice_min(year, n = 1) %>%
+  select(year, NPV_gov) %>%
+  mutate(incentive = "RVG")
+
+TCO_parity_combined <- combined_results %>%
+  filter(TCO_parity == "Yes") %>%
+  slice_min(year, n = 1) %>%
+  select(year, NPV_gov) %>%
+  mutate(incentive = "RVG + Subsidy")
+
+TCO_parity_gg <- bind_rows(TCO_parity_subsidy,
+                           TCO_parity_rvg,
+                           TCO_parity_combined)
+```
+
+
+
+```{r}
+Gov_expenditure_combined_measures <- ggplot() +
+  geom_segment(data=subsidy_results_gg,
+               aes(x = year, xend = year_next,
+                   y = NPV_gov, yend = NPV_next, 
+                   color = factor("Subsidy (50%)", 
+                                  levels = c("Subsidy (50%)", 
+                                             "Subsidy (30%) + RVG (25%)", 
+                                             "RVG (25%)")), 
+                   linetype = TCO_parity), 
+               size = 1.2) +
+  
+  geom_segment(data=combined_results_gg,
+               aes(x = year, xend = year_next,
+                   y = NPV_gov, yend = NPV_next,
+                   color = factor("Subsidy (30%) + RVG (25%)", 
+                                  levels = c("Subsidy (50%)", 
+                                             "Subsidy (30%) + RVG (25%)", 
+                                             "RVG (25%)")),
+                   linetype = TCO_parity),
+               size = 1.2) +
+  
+  geom_segment(data=rvg_results_gg,
+               aes(x = year, xend = year_next,
+                   y = NPV_gov, yend = NPV_next,
+                   color = factor("RVG (25%)", 
+                                  levels = c("Subsidy (50%)", 
+                                             "Subsidy (30%) + RVG (25%)", 
+                                             "RVG (25%)")),
+                   linetype = TCO_parity),
+               size = 1.2) +
+  
+  geom_point(data= TCO_parity_gg,
+             aes(x = year,
+                 y = NPV_gov, shape = "Onset of TCO parity"),
+             color = "black",
+             size = 3.5)+
+  
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours) +
+  scale_linetype_manual(values = c("Yes" = "solid",
+                                   "No" = "dotted")) +
+  scale_y_continuous(labels = function(x) format(x, big.mark = " "),
+                     expand = c(0,0),
+                     limits = c(0,200000))+
+  scale_x_continuous(expand = c(0,0),
+                     limits = c(2024, 2030.1)) +
+  labs(
+       y="Government expenditure (€/BET)", 
+       x="Year",
+       color = "Financial incentive \n(% of initial purchase price)",
+       linetype = "TCO parity",
+       shape = "") +
+    theme_classic()#+
+
+Gov_expenditure_combined_measures
+```
+# SENSITIVITY ANALYSIS: RV_market ±5pp, PD_BET_after ±2pp 
+
+```{r}
+
+rv_deltas <- c(-0.05, 0.05)
+
+max_subsidy_s <- 0.5
+max_rvg_s <- 0.25
+max_subsidy_combined_s <- 0.30
+max_rvg_combined_s <- 0.25
+
+#1. Variations in RV_market (PD at base)
+rv_sub <- data.frame()
+rv_rvg <- data.frame()
+rv_com <- data.frame()
+
+for (rv_d in rv_deltas) {
+
+  # RV_adj <- RV_market %>% mutate(RV = pmax(0, RV + rv_d))
+  RV_adj <- RV_market %>% mutate(RV = rv_d)
+
+  for (year in 2024:2030) {
+
+    #  Subsidy 
+    IR_s <- get_interest_raroc(
+      Purchase_year = year, Fuel = "BET",
+      upfront_cost = upfront_cost, subsidy = max_subsidy_s,
+      residual_value = RV_adj$RV[RV_adj$year == year],
+      PD = PD_BET_before$PD[PD_BET_before$year == year],
+      region = "Europe", company = "industry")
+
+    NPV_s <- get_NPV_fin_instrument(
+      Purchase_year = year, subsidy_type = "fixed_percentage",
+      subsidy = max_subsidy_s, interest_high = IR_s, interest_low = IR_s,
+      residual_value = 0, road_tolls_exemp = 0,
+      second_hand_value = RV_adj$RV[RV_adj$year == year])
+
+    rv_sub <- rbind(rv_sub, data.frame(year = year, rv_d = rv_d,
+                                       NPV_gov = NPV_s$purchase_subsidy))
+
+    # RVG 
+    IR_r <- get_interest_raroc(
+      Purchase_year = year, Fuel = "BET",
+      upfront_cost = upfront_cost, subsidy = 0,
+      residual_value = max_rvg_s,
+      PD = PD_BET_after$PD[PD_BET_after$year == year],
+      region = "Europe", company = "industry")
+
+    NPV_r <- get_NPV_fin_instrument(
+      Purchase_year = year, subsidy_type = "fixed_percentage",
+      subsidy = 0, interest_high = IR_r, interest_low = IR_r,
+      residual_value = max_rvg_s, road_tolls_exemp = 0,
+      second_hand_value = RV_adj$RV[RV_adj$year == year + 5])
+
+    rv_rvg <- rbind(rv_rvg, data.frame(year = year, rv_d = rv_d,
+                                       NPV_gov = NPV_r$residual_value_subsidy))
+
+    # Combined
+    IR_c <- get_interest_raroc(
+      Purchase_year = year, Fuel = "BET",
+      upfront_cost = upfront_cost, subsidy = max_subsidy_combined_s,
+      residual_value = max_rvg_combined_s,
+      PD = PD_BET_after$PD[PD_BET_after$year == year],
+      region = "Europe", company = "industry")
+
+    NPV_c <- get_NPV_fin_instrument(
+      Purchase_year = year, subsidy_type = "fixed_percentage",
+      subsidy = max_subsidy_combined_s,
+      interest_high = IR_c, interest_low = IR_c,
+      residual_value = max_rvg_combined_s, road_tolls_exemp = 0,
+      second_hand_value = RV_adj$RV[RV_adj$year == year + 5])
+
+    rv_com <- rbind(rv_com, data.frame(year = year, rv_d = rv_d,
+                                       NPV_gov = NPV_c$residual_value_subsidy + NPV_c$purchase_subsidy))
+  }
+}
+```
+
+```{r}
+#Plotting
+incentive_levels <- c("Subsidy (50%)", "Subsidy (30%) + RVG (25%)", "RVG (25%)")
+
+env_RV <- bind_rows(
+  rv_sub %>% group_by(year) %>% summarise(NPV_min = min(NPV_gov), NPV_max = max(NPV_gov), .groups = "drop") %>%
+    mutate(incentive = factor("Subsidy (50%)", levels = incentive_levels), source = "RV ±5pp"),
+  rv_rvg %>% group_by(year) %>% summarise(NPV_min = min(NPV_gov), NPV_max = max(NPV_gov), .groups = "drop") %>%
+    mutate(incentive = factor("RVG (25%)", levels = incentive_levels), source = "RV ±5pp"),
+  rv_com %>% group_by(year) %>% summarise(NPV_min = min(NPV_gov), NPV_max = max(NPV_gov), .groups = "drop") %>%
+    mutate(incentive = factor("Subsidy (30%) + RVG (25%)", levels = incentive_levels), source = "RV ±5pp")
+)
+
+ Gov_expenditure_combined_sensitivity <- ggplot() +
+  geom_ribbon(data = env_RV,
+              aes(x = year, ymin = NPV_min, ymax = NPV_max,
+                  fill = incentive, group = interaction(incentive, source),
+                  alpha = source)) +
+
+  geom_segment(data = subsidy_results_gg,
+               aes(x = year, xend = year_next, y = NPV_gov, yend = NPV_next,
+                   color = factor("Subsidy (50%)", levels = incentive_levels),
+                   linetype = TCO_parity), size = 1.2) +
+  geom_segment(data = combined_results_gg,
+               aes(x = year, xend = year_next, y = NPV_gov, yend = NPV_next,
+                   color = factor("Subsidy (30%) + RVG (25%)", levels = incentive_levels),
+                   linetype = TCO_parity), size = 1.2) +
+  geom_segment(data = rvg_results_gg,
+               aes(x = year, xend = year_next, y = NPV_gov, yend = NPV_next,
+                   color = factor("RVG (25%)", levels = incentive_levels),
+                   linetype = TCO_parity), size = 1.2) +
+
+  geom_point(data = TCO_parity_gg,
+             aes(x = year, y = NPV_gov, shape = "Onset of TCO parity"),
+             color = "black", size = 3.5) +
+
+  scale_color_manual(values = ITFcolours) +
+  scale_fill_manual(values = ITFcolours, guide = "none") +
+  scale_alpha_manual(values = c("RV ±5pp" = 0.30)) +
+  scale_linetype_manual(values = c("Yes" = "solid", "No" = "dotted")) +
+  scale_y_continuous(labels = function(x) format(x, big.mark = " "),
+                     expand = c(0, 0), limits = c(0, 200000)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(2024, 2030.1)) +
+  labs(y = "Government expenditure (€/BET)", x = "Year",
+       color = "Financial incentive \n(% of initial purchase price)",
+       alpha = "Sensitivity range",
+       linetype = "TCO parity", shape = "") +
+  theme_classic()
+
+Gov_expenditure_combined_sensitivity
+```
+
+

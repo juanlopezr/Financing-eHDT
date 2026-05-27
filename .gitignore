@@ -1,0 +1,25 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# R session / history
+.Rhistory
+.RData
+.Ruserdata
+
+# RStudio project
+.Rproj.user/
+*.Rproj
+*.Rcheck/
+
+# Knit / render artefacts
+*.knit.md
+*.utf8.md
+*.html
+*.pdf
+*_files/
+*_cache/
+
+# IDE
+.vscode/
+.idea/
