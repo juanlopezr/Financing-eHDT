@@ -904,7 +904,7 @@ rv_com <- data.frame()
 for (rv_d in rv_deltas) {
 
   # RV_adj <- RV_market %>% mutate(RV = pmax(0, RV + rv_d))
-  RV_adj <- RV_market %>% mutate(RV = rv_d)
+  RV_adj <- RV_market %>% mutate(RV = RV + rv_d)
 
   for (year in 2024:2030) {
 
