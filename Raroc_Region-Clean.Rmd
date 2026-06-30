@@ -1,7 +1,7 @@
 ---
-title: "Raroc_region"
-output: html_document
-date: "2025-05-06"
+title: "Raroc modeling across regions"
+Paper: Financing Road Freight Electrification: Modeling the Total Cost of Ownership of Battery-Electric Trucks under Residual Value and Interest Rate Uncertainties.
+Authors: Juan C. Lopez, Andreas Kopf, Matteo Craglia, and Miguel Jaller
 ---
 
 #Loading packages
