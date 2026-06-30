@@ -1,7 +1,7 @@
 ---
-title: "RAROC-Analysis"
-output: html_document
-date: "2025-04-15"
+title: "RAROC Modeling for lending"
+Paper: Financing Road Freight Electrification: Modeling the Total Cost of Ownership of Battery-Electric Trucks under Residual Value and Interest Rate Uncertainties.
+Authors: Juan C. Lopez, Andreas Kopf, Matteo Craglia, and Miguel Jaller
 ---
 
 #Loading packages
