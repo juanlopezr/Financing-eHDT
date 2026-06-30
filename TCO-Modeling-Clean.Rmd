@@ -1,7 +1,7 @@
 ---
-title: "TCO-RVG"
-output: html_document
-date: "2025-02-19"
+title: "TCO Modeling for a 4x4 Truck Tractor"
+Paper: Financing Road Freight Electrification: Modeling the Total Cost of Ownership of Battery-Electric Trucks under Residual Value and Interest Rate Uncertainties.
+Authors: Juan C. Lopez, Andreas Kopf, Matteo Craglia, and Miguel Jaller
 ---
 
 
